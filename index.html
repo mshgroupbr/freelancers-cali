@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Cali Cravings — Freelancers</title>
+<title>Freelancers Masha Group</title>
 <meta name="theme-color" content="#1F3864">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
@@ -109,13 +109,29 @@ input:checked + .toggle-sl:before{transform:translateX(20px)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #loading-bar{display:none;position:fixed;top:0;left:0;right:0;height:3px;background:var(--hd);z-index:999;animation:loadpulse 1s infinite}
 @keyframes loadpulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+
+/* UNIT SELECT SCREEN */
+.unit-select{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:28px;text-align:center}
+.unit-select img{width:88px;height:88px;object-fit:cover;border-radius:50%;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.unit-select h1{font-size:19px;font-weight:700;color:var(--tx)}
+.unit-cards{display:flex;flex-direction:column;gap:14px;width:100%;max-width:340px}
+.unit-card{display:flex;align-items:center;gap:14px;background:var(--surf);border:1.5px solid var(--bdr);border-radius:var(--r);padding:16px 18px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left}
+.unit-card:active{background:var(--surf2)}
+.unit-card img{width:46px;height:46px;object-fit:cover;border-radius:12px;flex-shrink:0}
+.unit-card-lb{font-size:15px;font-weight:600;color:var(--tx)}
+.unit-card.unit-cali{border-color:var(--gr)}
+.unit-card.unit-texas{border-color:#a32d2d}
+
+/* HEADER THEMING BY UNIT */
+body.tema-texas .hdr{background:#7A1F1F}
+body.tema-cali .hdr{background:var(--hd)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <link rel="manifest" href="./manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Freelancers Cali">
+<meta name="apple-mobile-web-app-title" content="Freelancers MSH">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>
 if('serviceWorker' in navigator){
@@ -128,9 +144,27 @@ if('serviceWorker' in navigator){
 <body>
 <div id="app">
 
+<!-- UNIDADE -->
+<div class="screen active" id="s-unidade">
+  <div class="unit-select">
+    <img src="https://mshgroupbr.github.io/pedido-compras/msh-logo.png" alt="Masha Group">
+    <h1>Qual unidade?</h1>
+    <div class="unit-cards">
+      <div class="unit-card unit-cali" onclick="escolherUnidade('Cali Cravings')">
+        <img src="https://mshgroupbr.github.io/pedido-compras/icon-cali.png" alt="Cali Cravings">
+        <div class="unit-card-lb">Cali Cravings</div>
+      </div>
+      <div class="unit-card unit-texas" onclick="escolherUnidade('Texas Country Bar')">
+        <img src="https://mshgroupbr.github.io/pedido-compras/icon-texas.png" alt="Texas Country Bar">
+        <div class="unit-card-lb">Texas Country Bar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
-<div class="screen active" id="s-login">
-  <div class="hdr"><div class="hico"><i class="ti ti-lock"></i></div><div class="htxt"><h1>Cali Cravings</h1><p>Freelancers — Acesso restrito</p></div></div>
+<div class="screen" id="s-login">
+  <div class="hdr"><div class="hico" onclick="goTo('s-unidade')" style="cursor:pointer"><i class="ti ti-arrow-left"></i></div><div class="htxt"><h1>Masha Group</h1><p>Freelancers — Acesso restrito</p></div></div>
   <div class="body" style="justify-content:center">
     <div class="card">
       <label class="fl">Senha de acesso</label>
@@ -144,7 +178,8 @@ if('serviceWorker' in navigator){
 <div class="screen" id="s-home">
   <div class="hdr">
     <div class="hico"><i class="ti ti-users"></i></div>
-    <div class="htxt"><h1>Cali Cravings</h1><p>Freelancers</p></div>
+    <div class="htxt"><h1>Masha Group</h1><p>Freelancers</p></div>
+    <div class="hico" id="home-unit-icon" onclick="trocarUnidade()" style="margin-left:auto;cursor:pointer;background:transparent;padding:0;overflow:hidden"></div>
   </div>
   <div class="body">
     <div class="stats">
@@ -309,7 +344,7 @@ const db = firebase.database();
 const FL_REF = db.ref('freelancers');
 const TN_REF = db.ref('turnos');
 
-const SENHAS = ['127127','128128','129129','130130'];
+const SENHAS = ['127127','128128','129129','130130','000813'];
 const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 let freelancersData = {};
@@ -331,9 +366,52 @@ function toast(msg){
   window._toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+// ---- UNIDADE ATIVA (device-level) ----
+function getUnidadeAtual(){
+  return localStorage.getItem('unidadeAtiva')||'Cali Cravings';
+}
+function salvarUnidadeAtiva(u){
+  localStorage.setItem('unidadeAtiva',u);
+  aplicarTemaUnidade();
+}
+function aplicarTemaUnidade(){
+  const u = getUnidadeAtual();
+  document.body.classList.toggle('tema-texas', u==='Texas Country Bar');
+  document.body.classList.toggle('tema-cali', u!=='Texas Country Bar');
+  atualizarIconeHome();
+}
+function atualizarIconeHome(){
+  const el = document.getElementById('home-unit-icon');
+  if(!el) return;
+  const u = getUnidadeAtual();
+  el.innerHTML = u==='Texas Country Bar'
+    ? '<img src="https://mshgroupbr.github.io/pedido-compras/icon-texas.png" alt="Texas Country Bar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+    : '<img src="https://mshgroupbr.github.io/pedido-compras/icon-cali.png" alt="Cali Cravings" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+}
+function escolherUnidade(u){
+  salvarUnidadeAtiva(u);
+  if(sessionStorage.getItem('ff_logged')==='1'){ showApp(); }
+  else { goTo('s-login'); }
+}
+function trocarUnidade(){
+  localStorage.removeItem('unidadeAtiva');
+  goTo('s-unidade');
+}
+function freelancersDaUnidade(){
+  const u = getUnidadeAtual();
+  return Object.fromEntries(Object.entries(freelancersData).filter(([id,f])=>(f.unidade||'Cali Cravings')===u));
+}
+function turnosDaUnidade(){
+  const u = getUnidadeAtual();
+  return Object.fromEntries(Object.entries(turnosData).filter(([id,t])=>(t.unidade||'Cali Cravings')===u));
+}
+
 // ---- LOGIN ----
 (function checkLogin(){
+  aplicarTemaUnidade();
+  if(!localStorage.getItem('unidadeAtiva')){ goTo('s-unidade'); return; }
   if(sessionStorage.getItem('ff_logged')==='1'){ showApp(); }
+  else { goTo('s-login'); }
 })();
 function tentarLogin(){
   const s = (document.getElementById('login-senha').value||'').trim();
@@ -346,15 +424,27 @@ function tentarLogin(){
 }
 function showApp(){
   goTo('s-home');
+  aplicarTemaUnidade();
   initData();
+  renderHome();
+  renderFreelancers();
+  renderFreelancerSelects();
+  renderHistoricoSelect();
+  renderHistorico();
+  renderTurnosRecentes();
+  renderFechamento();
 }
 
 // ---- DATA ----
+let _dataInited = false;
 function initData(){
+  if(_dataInited) return;
+  _dataInited = true;
   FL_REF.on('value', snap=>{
     freelancersData = snap.val()||{};
     renderFreelancers();
     renderFreelancerSelects();
+    renderHistoricoSelect();
     renderHome();
     renderHistorico();
   });
@@ -407,12 +497,13 @@ function isoParaBR(iso){
 function turnosDaSemana(weekStart){
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate()+6);
   const startIso = isoDate(weekStart), endIso = isoDate(weekEnd);
-  return Object.entries(turnosData).filter(([id,t])=> t.data>=startIso && t.data<=endIso);
+  const u = getUnidadeAtual();
+  return Object.entries(turnosData).filter(([id,t])=> t.data>=startIso && t.data<=endIso && (t.unidade||'Cali Cravings')===u);
 }
 
 // ---- HOME ----
 function renderHome(){
-  const ativos = Object.values(freelancersData).filter(f=>f.ativo!==false).length;
+  const ativos = Object.values(freelancersDaUnidade()).filter(f=>f.ativo!==false).length;
   document.getElementById('home-ativos').textContent = ativos;
   const turnos = turnosDaSemana(currentWeekStart);
   let total = 0;
@@ -422,7 +513,7 @@ function renderHome(){
 function renderTurnosRecentes(){
   const el = document.getElementById('tn-recentes');
   if(!el) return;
-  const arr = Object.entries(turnosData).map(([id,t])=>({id,...t})).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0)).slice(0,8);
+  const arr = Object.entries(turnosDaUnidade()).map(([id,t])=>({id,...t})).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0)).slice(0,8);
   if(!arr.length){ el.innerHTML='<div class="empty"><i class="ti ti-clock"></i>Nenhum lançamento ainda</div>'; return; }
   el.innerHTML = arr.map(t=>{
     const f = freelancersData[t.freelancerId]||{nome:'(removido)'};
@@ -439,7 +530,7 @@ function renderTurnosRecentes(){
 // ---- FREELANCERS ----
 function renderFreelancers(){
   const el = document.getElementById('fl-list');
-  const arr = Object.entries(freelancersData).sort((a,b)=>{
+  const arr = Object.entries(freelancersDaUnidade()).sort((a,b)=>{
     const aAtivo = a[1].ativo!==false, bAtivo = b[1].ativo!==false;
     if(aAtivo!==bAtivo) return aAtivo? -1:1;
     return (a[1].nome||'').localeCompare(b[1].nome||'');
@@ -455,7 +546,7 @@ function renderFreelancers(){
   }).join('');
 }
 function renderFreelancerSelects(){
-  const ativos = Object.entries(freelancersData).filter(([id,f])=>f.ativo!==false).sort((a,b)=>a[1].nome.localeCompare(b[1].nome));
+  const ativos = Object.entries(freelancersDaUnidade()).filter(([id,f])=>f.ativo!==false).sort((a,b)=>a[1].nome.localeCompare(b[1].nome));
   const opts = '<option value="">Selecione...</option>' + ativos.map(([id,f])=>`<option value="${id}">${f.nome}</option>`).join('');
   const selTn = document.getElementById('tn-freelancer');
   if(selTn){ const cur=selTn.value; selTn.innerHTML=opts; if(cur) selTn.value=cur; }
@@ -489,7 +580,8 @@ function salvarFreelancer(){
   const funcao = (document.getElementById('fl-funcao').value||'').trim();
   const valorHoraPadrao = parseFloat(document.getElementById('fl-valor').value)||0;
   const ativo = document.getElementById('fl-ativo').checked;
-  const data = {nome, funcao, valorHoraPadrao, ativo};
+  const unidade = editingFreelancerId ? (freelancersData[editingFreelancerId]?.unidade || getUnidadeAtual()) : getUnidadeAtual();
+  const data = {nome, funcao, valorHoraPadrao, ativo, unidade};
   if(editingFreelancerId){
     FL_REF.child(editingFreelancerId).update(data);
     toast('✅ Freelancer atualizado');
@@ -545,7 +637,8 @@ function salvarTurno(){
   const data = document.getElementById('tn-data').value;
   if(!data){ toast('⚠️ Informe a data'); return; }
   const tipo = window._tnTipo || 'hora';
-  let payload = {freelancerId, data, observacao: (document.getElementById('tn-obs').value||'').trim(), criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now()};
+  const unidade = editingTurnoId ? (turnosData[editingTurnoId]?.unidade || getUnidadeAtual()) : getUnidadeAtual();
+  let payload = {freelancerId, data, unidade, observacao: (document.getElementById('tn-obs').value||'').trim(), criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now()};
   if(tipo==='fixo'){
     const vf = parseFloat(document.getElementById('tn-valor-fixo').value);
     if(!vf || vf<=0){ toast('⚠️ Informe o valor fixo do dia'); return; }
@@ -660,7 +753,7 @@ function renderFechamento(){
 function renderHistoricoSelect(){
   const sel = document.getElementById('hist-freelancer');
   const cur = sel.value;
-  const opts = Object.entries(freelancersData).sort((a,b)=>a[1].nome.localeCompare(b[1].nome))
+  const opts = Object.entries(freelancersDaUnidade()).sort((a,b)=>a[1].nome.localeCompare(b[1].nome))
     .map(([id,f])=>`<option value="${id}">${f.nome}</option>`).join('');
   sel.innerHTML = '<option value="">Selecione...</option>'+opts;
   if(cur) sel.value=cur;
@@ -700,7 +793,7 @@ async function exportarExcelSemana(){
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Freelancers', {pageSetup:{orientation:'landscape'}});
   ws.columns = [{width:14.14},{width:19},{width:15},{width:9},{width:9},{width:9},{width:13},{width:15},{width:17},{width:15}];
-  ws.getCell('A1').value = `CALI CRAVINGS — RELATÓRIO DE PAGAMENTO DE FREELANCERS SEMANA ${fmtDataBR(currentWeekStart)} A ${fmtDataBR(weekEnd)}`;
+  ws.getCell('A1').value = `${getUnidadeAtual().toUpperCase()} — RELATÓRIO DE PAGAMENTO DE FREELANCERS SEMANA ${fmtDataBR(currentWeekStart)} A ${fmtDataBR(weekEnd)}`;
   ws.getCell('A1').font = {name:'Arial', bold:true, size:13, color:{argb:'FF1F3864'}};
   ws.getRow(1).height = 16.5;
   const headers = ['Funcionário','Função','Data','Dia','Entrada','Saída','Horas Trabalhadas','Valor/Hora','Valor Fixo do Dia','Total do Dia'];
@@ -798,7 +891,7 @@ function exportarPdfSemana(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation:'landscape', unit:'pt'});
   doc.setFontSize(13); doc.setTextColor(31,56,100); doc.setFont(undefined,'bold');
-  doc.text('CALI CRAVINGS — RELATÓRIO DE PAGAMENTO DE FREELANCERS SEMANA '+fmtDataBR(currentWeekStart)+' A '+fmtDataBR(weekEnd), 30, 30);
+  doc.text(getUnidadeAtual().toUpperCase()+' — RELATÓRIO DE PAGAMENTO DE FREELANCERS SEMANA '+fmtDataBR(currentWeekStart)+' A '+fmtDataBR(weekEnd), 30, 30);
   const byFl = {};
   turnos.forEach(t=>{ (byFl[t.freelancerId]=byFl[t.freelancerId]||[]).push(t); });
   const body=[];

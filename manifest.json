@@ -1,7 +1,7 @@
 {
-  "name": "Cali Cravings — Freelancers",
-  "short_name": "Freelancers Cali",
-  "description": "App de lançamento e fechamento de pagamento de freelancers Cali Cravings",
+  "name": "Freelancers Masha Group",
+  "short_name": "Freelancers MSH",
+  "description": "App de lançamento e fechamento de pagamento de freelancers — Masha Group (Cali Cravings e Texas Country Bar)",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

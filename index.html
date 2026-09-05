@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Cali Cravings — Freelancers</title>
+<meta name="theme-color" content="#1F3864">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F5F0E8;--surf:#FDFAF5;--surf2:#EDE8DC;
+  --bdr:rgba(0,0,0,.10);--bdr2:rgba(0,0,0,.18);
+  --tx:#1a1a1a;--tx2:#666660;--tx3:#999993;
+  --or:#8B7355;--or-l:#f5f0e8;
+  --gr:#1d9e75;--gr-l:#e1f5ee;
+  --hd:#1F3864;--r:14px;--rs:9px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111112;--surf:#1e1e20;--surf2:#2a2a2d;
+  --bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);
+  --tx:#f0efe8;--tx2:#aaa9a0;--tx3:#666660;
+}}
+html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:var(--tx);-webkit-font-smoothing:antialiased}
+#app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.screen{display:none;flex-direction:column;flex:1}
+.screen.active{display:flex}
+.hdr{background:var(--hd);color:#fff;padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+.hico{width:38px;height:38px;border-radius:50%;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.htxt h1{font-size:16px;font-weight:600}
+.htxt p{font-size:12px;opacity:.55;margin-top:1px}
+.back,.hbk{margin-left:0;background:rgba(255,255,255,.12);border:none;color:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.back{margin-left:auto}
+.back:active,.hbk:active{background:rgba(255,255,255,.25)}
+.body,.pad{flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;padding-bottom:calc(32px + env(safe-area-inset-bottom))}
+.card{background:var(--surf);border:.5px solid var(--bdr);border-radius:var(--r);padding:14px 16px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--surf);border:.5px solid var(--bdr);border-radius:var(--r);padding:16px}
+.stat-l{font-size:12px;color:var(--tx2);margin-bottom:6px}
+.stat-n{font-size:26px;font-weight:700}
+.stat-n.o{color:var(--or)}
+.stat-n.g{color:var(--gr)}
+.btn-or{background:var(--hd);color:#fff;border:none;border-radius:var(--r);padding:15px;font-size:15px;font-weight:600;width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.btn-or:active{opacity:.85}
+.btn-sec{background:none;border:.5px solid var(--bdr2);border-radius:var(--r);padding:13px;font-size:14px;color:var(--tx2);cursor:pointer;width:100%;-webkit-tap-highlight-color:transparent}
+.btn-sec:active{background:var(--surf2)}
+.btn-excel-home{background:none;border:.5px solid var(--hd);border-radius:var(--r);padding:13px;font-size:14px;color:var(--hd);cursor:pointer;width:100%;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.btn-excel-home:active{background:#EDE8DC}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-excel{background:none;border:.5px solid #185fa5;border-radius:var(--r);padding:13px;font-size:14px;color:#185fa5;cursor:pointer;width:100%;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.btn-excel:active{background:#e6f1fb}
+.btn-pdf{background:none;border:.5px solid #a32d2d;border-radius:var(--r);padding:13px;font-size:14px;color:#a32d2d;cursor:pointer;width:100%;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.btn-pdf:active{background:#fcebeb}
+.btn-danger{background:none;border:.5px solid #e24b4a;border-radius:var(--r);padding:13px;font-size:14px;color:#e24b4a;cursor:pointer;width:100%;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.btn-danger:active{background:#fcebeb}
+.btn-add{background:none;border:1.5px dashed var(--bdr2);border-radius:var(--rs);padding:11px;font-size:14px;color:var(--hd);cursor:pointer;width:100%;font-family:inherit;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent}
+.btn-add:active{background:var(--surf2)}
+.sec-l{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.clb{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:10px}
+.ri{background:var(--surf);border:.5px solid var(--bdr);border-radius:var(--r);padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ri:active{background:var(--surf2)}
+.rico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.rico.s{background:var(--gr-l);color:#0f6e56}
+.rico.i{background:var(--surf2);color:var(--tx3)}
+.rm{flex:1;min-width:0}
+.rt{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rs{font-size:12px;color:var(--tx2);margin-top:2px}
+.badge{font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;flex-shrink:0}
+.bs{background:var(--gr-l);color:#0f6e56}
+.bi{background:var(--surf2);color:var(--tx3)}
+.empty{text-align:center;padding:32px 20px;color:var(--tx3);font-size:14px}
+.empty i{font-size:36px;display:block;margin-bottom:10px;opacity:.4}
+.fl{font-size:12px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:block}
+input,select,textarea{width:100%;background:var(--surf2);border:.5px solid var(--bdr);border-radius:var(--rs);padding:12px 13px;font-size:15px;font-family:inherit;color:var(--tx);outline:none;-webkit-appearance:none;appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--hd);box-shadow:0 0 0 3px rgba(31,56,100,.12);background:var(--surf)}
+textarea{resize:none;line-height:1.5}
+.dr{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:.5px solid var(--bdr)}
+.dr:last-child{border-bottom:none}
+.dk{font-size:13px;color:var(--tx2)}
+.dv{font-size:14px;font-weight:600;text-align:right;max-width:200px}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:.5px solid var(--bdr)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-nm{font-size:13px;color:var(--tx);flex:1;padding-right:10px}
+.toggle-sw{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle-sw input{opacity:0;width:0;height:0}
+.toggle-sl{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s}
+.toggle-sl:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s}
+input:checked + .toggle-sl{background:#1d9e75}
+input:checked + .toggle-sl:before{transform:translateX(20px)}
+.seg-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg{border:.5px solid var(--bdr2);border-radius:var(--rs);padding:12px 4px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;color:var(--tx2);-webkit-tap-highlight-color:transparent}
+.seg.ativo{border-color:var(--hd);background:#e6ecf5;color:var(--hd);font-weight:600}
+.week-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.week-btn{background:var(--surf);border:.5px solid var(--bdr2);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--hd);flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.week-btn:active{background:var(--surf2)}
+.week-lbl{font-size:14px;font-weight:600;text-align:center;flex:1}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--surf);border-radius:16px;padding:24px;width:100%;max-width:360px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+.modal-box h2{font-size:18px;font-weight:700;color:var(--tx);margin-bottom:14px}
+.modal-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.modal-cancel{background:none;border:1.5px solid var(--bdr2);border-radius:10px;padding:13px;font-size:15px;font-weight:600;color:var(--tx2);cursor:pointer;font-family:inherit}
+.modal-cancel:active{background:var(--surf2)}
+.modal-confirm{background:var(--hd);border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit}
+.modal-confirm:active{opacity:.85}
+.field{margin-bottom:14px}
+#toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a2e;color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:500;opacity:0;transition:opacity .2s,transform .2s;z-index:999;white-space:nowrap;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#loading-bar{display:none;position:fixed;top:0;left:0;right:0;height:3px;background:var(--hd);z-index:999;animation:loadpulse 1s infinite}
+@keyframes loadpulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="manifest" href="./manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Freelancers Cali">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(err=>console.log('SW erro:', err));
+  });
+}
+</script>
+</head>
+<body>
+<div id="app">
+
+<!-- LOGIN -->
+<div class="screen active" id="s-login">
+  <div class="hdr"><div class="hico"><i class="ti ti-lock"></i></div><div class="htxt"><h1>Cali Cravings</h1><p>Freelancers — Acesso restrito</p></div></div>
+  <div class="body" style="justify-content:center">
+    <div class="card">
+      <label class="fl">Senha de acesso</label>
+      <input id="login-senha" type="password" placeholder="Digite a senha" autocomplete="off" onkeydown="if(event.key==='Enter')tentarLogin()">
+    </div>
+    <button class="btn-or" onclick="tentarLogin()"><i class="ti ti-login"></i> Entrar</button>
+  </div>
+</div>
+
+<!-- HOME -->
+<div class="screen" id="s-home">
+  <div class="hdr">
+    <div class="hico"><i class="ti ti-users"></i></div>
+    <div class="htxt"><h1>Cali Cravings</h1><p>Freelancers</p></div>
+  </div>
+  <div class="body">
+    <div class="stats">
+      <div class="stat"><div class="stat-l">Freelancers ativos</div><div class="stat-n o" id="home-ativos">0</div></div>
+      <div class="stat"><div class="stat-l">Total desta semana</div><div class="stat-n g" id="home-total-semana">R$ 0,00</div></div>
+    </div>
+    <button class="btn-or" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
+    <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
+    <button class="btn-excel-home" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
+    <button class="btn-excel-home" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
+    <div>
+      <div class="sec-l">Lançamentos recentes</div>
+      <div id="tn-recentes" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FREELANCERS -->
+<div class="screen" id="s-freelancers">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Freelancers</h1><p>Cadastro e edição</p></div>
+  </div>
+  <div class="pad">
+    <div id="fl-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <button class="btn-add" onclick="novoFreelancer()"><i class="ti ti-plus"></i> Novo freelancer</button>
+  </div>
+</div>
+
+<!-- LANÇAR TURNO -->
+<div class="screen" id="s-turno">
+  <div class="hdr">
+    <button class="hbk" onclick="voltarDoTurno()"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1 id="tn-titulo">Lançar turno</h1><p>Registro de trabalho</p></div>
+  </div>
+  <div class="body">
+    <div class="card">
+      <label class="fl">Freelancer</label>
+      <select id="tn-freelancer" onchange="onSelectFreelancerTurno()" style="margin-bottom:12px"></select>
+      <label class="fl">Data</label>
+      <input id="tn-data" type="date" style="margin-bottom:12px">
+      <label class="fl">Forma de pagamento</label>
+      <div class="seg-row" style="margin-bottom:12px">
+        <div class="seg ativo" id="tn-tipo-hora" onclick="tipoPagamentoChange('hora')">Por hora</div>
+        <div class="seg" id="tn-tipo-fixo" onclick="tipoPagamentoChange('fixo')">Valor fixo do dia</div>
+      </div>
+      <div id="tn-bloco-hora">
+        <label class="fl">Entrada</label>
+        <input id="tn-entrada" type="time" style="margin-bottom:12px">
+        <label class="fl">Saída</label>
+        <input id="tn-saida" type="time" style="margin-bottom:12px">
+        <label class="fl">Valor / hora (R$)</label>
+        <input id="tn-valor-hora" type="number" step="0.01" placeholder="0,00" style="margin-bottom:12px">
+      </div>
+      <div id="tn-bloco-fixo" style="display:none">
+        <label class="fl">Valor fixo do dia (R$)</label>
+        <input id="tn-valor-fixo" type="number" step="0.01" placeholder="0,00" style="margin-bottom:12px">
+      </div>
+      <label class="fl">Observação (opcional)</label>
+      <textarea id="tn-obs" rows="2" placeholder="Alguma observação sobre o turno..."></textarea>
+    </div>
+    <button class="btn-or" onclick="salvarTurno()"><i class="ti ti-device-floppy"></i> Salvar lançamento</button>
+    <button class="btn-danger" id="tn-del-btn" style="display:none" onclick="excluirTurno()"><i class="ti ti-trash"></i> Excluir turno</button>
+  </div>
+</div>
+
+<!-- FECHAMENTO SEMANAL -->
+<div class="screen" id="s-fechamento">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Fechamento semanal</h1><p>Segunda a domingo</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <div class="week-nav">
+        <div class="week-btn" onclick="mudarSemana(-1)"><i class="ti ti-chevron-left"></i></div>
+        <div class="week-lbl" id="fech-range">-</div>
+        <div class="week-btn" onclick="mudarSemana(1)"><i class="ti ti-chevron-right"></i></div>
+      </div>
+    </div>
+    <div id="fech-list"></div>
+    <div class="card" style="background:#FCE4D6">
+      <div class="dr" style="border:none;padding:0">
+        <div class="dk" style="font-weight:700;font-size:14px;color:#7a3b0a">TOTAL GERAL A PAGAR</div>
+        <div class="dv" style="font-size:18px;color:#7a3b0a" id="fech-total">R$ 0,00</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-excel" onclick="exportarExcelSemana()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+      <button class="btn-pdf" onclick="exportarPdfSemana()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="screen" id="s-historico">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Histórico</h1><p>Por freelancer</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <label class="fl">Freelancer</label>
+      <select id="hist-freelancer" onchange="renderHistorico()"></select>
+    </div>
+    <div class="card">
+      <div id="hist-list"></div>
+      <div class="dr" style="border-top:1px solid var(--bdr2);margin-top:6px;padding-top:10px">
+        <div class="dk" style="font-weight:700" id="hist-total"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FREELANCER -->
+<div class="modal-overlay" id="modal-freelancer">
+  <div class="modal-box">
+    <h2 id="fl-modal-title">Novo Freelancer</h2>
+    <div class="field">
+      <label class="fl">Nome</label>
+      <input id="fl-nome" type="text" placeholder="Nome completo" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="fl">Função</label>
+      <input id="fl-funcao" type="text" placeholder="Ex: Garçom, Cozinha, Bar..." autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="fl">Valor / hora padrão (R$)</label>
+      <input id="fl-valor" type="number" step="0.01" placeholder="Opcional">
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-nm">Ativo</div>
+      <label class="toggle-sw"><input type="checkbox" id="fl-ativo" checked><span class="toggle-sl"></span></label>
+    </div>
+    <div class="modal-btns" style="margin-top:16px">
+      <button class="modal-cancel" onclick="fecharModalFreelancer()">Cancelar</button>
+      <button class="modal-confirm" onclick="salvarFreelancer()">Salvar</button>
+    </div>
+    <button class="btn-danger" id="fl-del-btn" style="display:none;margin-top:10px" onclick="excluirFreelancer()"><i class="ti ti-trash"></i> Excluir freelancer</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="loading-bar"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ---- FIREBASE CONFIG (mesmo projeto dos outros apps Cali/Masha) ----
+const firebaseConfig = {
+  apiKey: "AIzaSyDbdgaIEoKn39cjju2IVP83DdP3c1Og6Oo",
+  authDomain: "cozinha-pro-194a7.firebaseapp.com",
+  databaseURL: "https://cozinha-pro-194a7-default-rtdb.firebaseio.com",
+  projectId: "cozinha-pro-194a7",
+  storageBucket: "cozinha-pro-194a7.firebasestorage.app",
+  messagingSenderId: "1062088005856",
+  appId: "1:1062088005856:web:a291533509ffebd7d45885"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const FL_REF = db.ref('freelancers');
+const TN_REF = db.ref('turnos');
+
+const SENHAS = ['127127','128128','129129','130130'];
+const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+let freelancersData = {};
+let turnosData = {};
+let currentWeekStart = getMonday(new Date());
+let editingTurnoId = null;
+let editingFreelancerId = null;
+let turnoBackTarget = 's-home';
+
+// ---- NAV ----
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ---- LOGIN ----
+(function checkLogin(){
+  if(sessionStorage.getItem('ff_logged')==='1'){ showApp(); }
+})();
+function tentarLogin(){
+  const s = (document.getElementById('login-senha').value||'').trim();
+  if(SENHAS.includes(s)){
+    sessionStorage.setItem('ff_logged','1');
+    showApp();
+  } else {
+    toast('Senha incorreta ❌');
+  }
+}
+function showApp(){
+  goTo('s-home');
+  initData();
+}
+
+// ---- DATA ----
+function initData(){
+  FL_REF.on('value', snap=>{
+    freelancersData = snap.val()||{};
+    renderFreelancers();
+    renderFreelancerSelects();
+    renderHome();
+    renderHistorico();
+  });
+  TN_REF.on('value', snap=>{
+    turnosData = snap.val()||{};
+    renderTurnosRecentes();
+    renderFechamento();
+    renderHistorico();
+    renderHome();
+  });
+}
+
+// ---- HELPERS DE CÁLCULO ----
+function horasTrabalhadas(entrada, saida){
+  if(!entrada || !saida) return 0;
+  const [eh,em] = entrada.split(':').map(Number);
+  const [sh,sm] = saida.split(':').map(Number);
+  let eMin=eh*60+em, sMin=sh*60+sm;
+  if(sMin<=eMin) sMin+=24*60;
+  return (sMin-eMin)/60;
+}
+function totalDiaTurno(t, freelancer){
+  if(t.valorFixoDia) return t.valorFixoDia;
+  const horas = horasTrabalhadas(t.entrada, t.saida);
+  const valorHora = t.valorHora || (freelancer&&freelancer.valorHoraPadrao) || 0;
+  return horas*valorHora;
+}
+function brl(v){
+  return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+
+// ---- HELPERS DE SEMANA/DATA ----
+function getMonday(d){
+  const date=new Date(d); const day=date.getDay();
+  const diff = day===0 ? -6 : 1-day;
+  date.setDate(date.getDate()+diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+function fmtDataBR(d){
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+}
+function isoDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function isoParaBR(iso){
+  const [y,m,d] = iso.split('-');
+  return d+'/'+m+'/'+y;
+}
+function turnosDaSemana(weekStart){
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  const startIso = isoDate(weekStart), endIso = isoDate(weekEnd);
+  return Object.entries(turnosData).filter(([id,t])=> t.data>=startIso && t.data<=endIso);
+}
+
+// ---- HOME ----
+function renderHome(){
+  const ativos = Object.values(freelancersData).filter(f=>f.ativo!==false).length;
+  document.getElementById('home-ativos').textContent = ativos;
+  const turnos = turnosDaSemana(currentWeekStart);
+  let total = 0;
+  turnos.forEach(([id,t])=>{ total += totalDiaTurno(t, freelancersData[t.freelancerId]); });
+  document.getElementById('home-total-semana').textContent = brl(total);
+}
+function renderTurnosRecentes(){
+  const el = document.getElementById('tn-recentes');
+  if(!el) return;
+  const arr = Object.entries(turnosData).map(([id,t])=>({id,...t})).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0)).slice(0,8);
+  if(!arr.length){ el.innerHTML='<div class="empty"><i class="ti ti-clock"></i>Nenhum lançamento ainda</div>'; return; }
+  el.innerHTML = arr.map(t=>{
+    const f = freelancersData[t.freelancerId]||{nome:'(removido)'};
+    const total = totalDiaTurno(t,f);
+    const detalhe = t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||''));
+    return `<div class="ri" onclick="abrirEdicaoRapida('${t.id}','s-home')">
+      <div class="rico s"><i class="ti ti-user"></i></div>
+      <div class="rm"><div class="rt">${f.nome}</div><div class="rs">${isoParaBR(t.data)} · ${detalhe}</div></div>
+      <div class="badge bs">${brl(total)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---- FREELANCERS ----
+function renderFreelancers(){
+  const el = document.getElementById('fl-list');
+  const arr = Object.entries(freelancersData).sort((a,b)=>{
+    const aAtivo = a[1].ativo!==false, bAtivo = b[1].ativo!==false;
+    if(aAtivo!==bAtivo) return aAtivo? -1:1;
+    return (a[1].nome||'').localeCompare(b[1].nome||'');
+  });
+  if(!arr.length){ el.innerHTML='<div class="empty"><i class="ti ti-users"></i>Nenhum freelancer cadastrado</div>'; return; }
+  el.innerHTML = arr.map(([id,f])=>{
+    const ativo = f.ativo!==false;
+    return `<div class="ri" onclick="editarFreelancer('${id}')">
+      <div class="rico ${ativo?'s':'i'}"><i class="ti ti-user"></i></div>
+      <div class="rm"><div class="rt">${f.nome}</div><div class="rs">${f.funcao||'—'}${f.valorHoraPadrao?(' · R$ '+f.valorHoraPadrao.toFixed(2)+'/h'):''}</div></div>
+      <div class="badge ${ativo?'bs':'bi'}">${ativo?'Ativo':'Inativo'}</div>
+    </div>`;
+  }).join('');
+}
+function renderFreelancerSelects(){
+  const ativos = Object.entries(freelancersData).filter(([id,f])=>f.ativo!==false).sort((a,b)=>a[1].nome.localeCompare(b[1].nome));
+  const opts = '<option value="">Selecione...</option>' + ativos.map(([id,f])=>`<option value="${id}">${f.nome}</option>`).join('');
+  const selTn = document.getElementById('tn-freelancer');
+  if(selTn){ const cur=selTn.value; selTn.innerHTML=opts; if(cur) selTn.value=cur; }
+}
+function abrirModalFreelancer(){ document.getElementById('modal-freelancer').classList.add('show'); }
+function fecharModalFreelancer(){ document.getElementById('modal-freelancer').classList.remove('show'); editingFreelancerId=null; }
+function novoFreelancer(){
+  editingFreelancerId=null;
+  document.getElementById('fl-modal-title').textContent='Novo Freelancer';
+  document.getElementById('fl-nome').value='';
+  document.getElementById('fl-funcao').value='';
+  document.getElementById('fl-valor').value='';
+  document.getElementById('fl-ativo').checked=true;
+  document.getElementById('fl-del-btn').style.display='none';
+  abrirModalFreelancer();
+}
+function editarFreelancer(id){
+  const f = freelancersData[id];
+  editingFreelancerId = id;
+  document.getElementById('fl-modal-title').textContent='Editar Freelancer';
+  document.getElementById('fl-nome').value=f.nome||'';
+  document.getElementById('fl-funcao').value=f.funcao||'';
+  document.getElementById('fl-valor').value=f.valorHoraPadrao||'';
+  document.getElementById('fl-ativo').checked=f.ativo!==false;
+  document.getElementById('fl-del-btn').style.display='block';
+  abrirModalFreelancer();
+}
+function salvarFreelancer(){
+  const nome = (document.getElementById('fl-nome').value||'').trim().toUpperCase();
+  if(!nome){ toast('⚠️ Informe o nome'); return; }
+  const funcao = (document.getElementById('fl-funcao').value||'').trim();
+  const valorHoraPadrao = parseFloat(document.getElementById('fl-valor').value)||0;
+  const ativo = document.getElementById('fl-ativo').checked;
+  const data = {nome, funcao, valorHoraPadrao, ativo};
+  if(editingFreelancerId){
+    FL_REF.child(editingFreelancerId).update(data);
+    toast('✅ Freelancer atualizado');
+  } else {
+    FL_REF.push(data);
+    toast('✅ Freelancer cadastrado');
+  }
+  fecharModalFreelancer();
+}
+function excluirFreelancer(){
+  if(!editingFreelancerId) return;
+  const senha = prompt('Digite a senha para excluir:');
+  if(!SENHAS.includes((senha||'').trim())){ toast('Senha incorreta ❌'); return; }
+  if(!confirm('Excluir este freelancer? Os turnos já lançados permanecem no histórico.')) return;
+  FL_REF.child(editingFreelancerId).remove();
+  toast('🗑️ Freelancer excluído');
+  fecharModalFreelancer();
+}
+
+// ---- LANÇAR TURNO ----
+function abrirLancamento(){
+  editingTurnoId = null;
+  turnoBackTarget = 's-home';
+  document.getElementById('tn-titulo').textContent='Lançar turno';
+  document.getElementById('tn-freelancer').value='';
+  document.getElementById('tn-data').value = isoDate(new Date());
+  tipoPagamentoChange('hora');
+  document.getElementById('tn-entrada').value='';
+  document.getElementById('tn-saida').value='';
+  document.getElementById('tn-valor-hora').value='';
+  document.getElementById('tn-valor-fixo').value='';
+  document.getElementById('tn-obs').value='';
+  document.getElementById('tn-del-btn').style.display='none';
+  goTo('s-turno');
+}
+function tipoPagamentoChange(tipo){
+  document.getElementById('tn-bloco-hora').style.display = tipo==='hora'?'block':'none';
+  document.getElementById('tn-bloco-fixo').style.display = tipo==='fixo'?'block':'none';
+  document.getElementById('tn-tipo-hora').classList.toggle('ativo', tipo==='hora');
+  document.getElementById('tn-tipo-fixo').classList.toggle('ativo', tipo==='fixo');
+  window._tnTipo = tipo;
+}
+function onSelectFreelancerTurno(){
+  const fid = document.getElementById('tn-freelancer').value;
+  const f = freelancersData[fid];
+  if(f && f.valorHoraPadrao && !document.getElementById('tn-valor-hora').value){
+    document.getElementById('tn-valor-hora').value = f.valorHoraPadrao;
+  }
+}
+function salvarTurno(){
+  const freelancerId = document.getElementById('tn-freelancer').value;
+  if(!freelancerId){ toast('⚠️ Selecione o freelancer'); return; }
+  const data = document.getElementById('tn-data').value;
+  if(!data){ toast('⚠️ Informe a data'); return; }
+  const tipo = window._tnTipo || 'hora';
+  let payload = {freelancerId, data, observacao: (document.getElementById('tn-obs').value||'').trim(), criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now()};
+  if(tipo==='fixo'){
+    const vf = parseFloat(document.getElementById('tn-valor-fixo').value);
+    if(!vf || vf<=0){ toast('⚠️ Informe o valor fixo do dia'); return; }
+    payload.valorFixoDia = vf;
+    payload.entrada = null; payload.saida = null; payload.valorHora = null;
+  } else {
+    const entrada = document.getElementById('tn-entrada').value;
+    const saida = document.getElementById('tn-saida').value;
+    if(!entrada || !saida){ toast('⚠️ Informe entrada e saída'); return; }
+    const valorHora = parseFloat(document.getElementById('tn-valor-hora').value)||0;
+    payload.entrada = entrada; payload.saida = saida; payload.valorHora = valorHora;
+    payload.valorFixoDia = null;
+  }
+  if(editingTurnoId){
+    TN_REF.child(editingTurnoId).update(payload);
+    toast('✅ Turno atualizado');
+  } else {
+    TN_REF.push(payload);
+    toast('✅ Turno lançado');
+  }
+  goTo(turnoBackTarget);
+}
+function excluirTurno(){
+  if(!editingTurnoId) return;
+  const senha = prompt('Digite a senha para excluir:');
+  if(!SENHAS.includes((senha||'').trim())){ toast('Senha incorreta ❌'); return; }
+  if(!confirm('Excluir este lançamento?')) return;
+  TN_REF.child(editingTurnoId).remove();
+  toast('🗑️ Turno excluído');
+  goTo(turnoBackTarget);
+}
+function voltarDoTurno(){
+  goTo(turnoBackTarget);
+}
+function abrirEdicaoRapida(id, origem){
+  const t = turnosData[id];
+  if(!t) return;
+  editingTurnoId = id;
+  turnoBackTarget = origem || 's-fechamento';
+  document.getElementById('tn-titulo').textContent='Editar turno';
+  document.getElementById('tn-freelancer').value = t.freelancerId;
+  document.getElementById('tn-data').value = t.data;
+  if(t.valorFixoDia){
+    tipoPagamentoChange('fixo');
+    document.getElementById('tn-valor-fixo').value = t.valorFixoDia;
+    document.getElementById('tn-entrada').value='';
+    document.getElementById('tn-saida').value='';
+    document.getElementById('tn-valor-hora').value='';
+  } else {
+    tipoPagamentoChange('hora');
+    document.getElementById('tn-entrada').value = t.entrada||'';
+    document.getElementById('tn-saida').value = t.saida||'';
+    document.getElementById('tn-valor-hora').value = t.valorHora||'';
+    document.getElementById('tn-valor-fixo').value='';
+  }
+  document.getElementById('tn-obs').value = t.observacao||'';
+  document.getElementById('tn-del-btn').style.display='block';
+  goTo('s-turno');
+}
+
+// ---- FECHAMENTO SEMANAL ----
+function mudarSemana(delta){
+  currentWeekStart.setDate(currentWeekStart.getDate()+delta*7);
+  renderFechamento();
+  renderHome();
+}
+function renderFechamento(){
+  const rangeEl = document.getElementById('fech-range');
+  if(!rangeEl) return;
+  const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  rangeEl.textContent = fmtDataBR(currentWeekStart)+' a '+fmtDataBR(weekEnd);
+  const turnos = turnosDaSemana(currentWeekStart);
+  const byFl = {};
+  turnos.forEach(([id,t])=>{ (byFl[t.freelancerId]=byFl[t.freelancerId]||[]).push({id,...t}); });
+  const cont = document.getElementById('fech-list');
+  let totalGeral=0;
+  if(!Object.keys(byFl).length){
+    cont.innerHTML = '<div class="empty"><i class="ti ti-calendar-off"></i>Nenhum lançamento nesta semana</div>';
+    document.getElementById('fech-total').textContent = brl(0);
+    return;
+  }
+  let html = '';
+  Object.keys(byFl).sort((a,b)=>(freelancersData[a]?.nome||'').localeCompare(freelancersData[b]?.nome||'')).forEach(fid=>{
+    const f = freelancersData[fid]||{nome:'(removido)'};
+    const lista = byFl[fid].sort((a,b)=>a.data.localeCompare(b.data));
+    let subtotal=0;
+    const rowsHtml = lista.map(t=>{
+      const horas = horasTrabalhadas(t.entrada,t.saida);
+      const total = totalDiaTurno(t, f);
+      subtotal+=total;
+      const detalhe = t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)');
+      return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-fechamento')">
+        <div class="dk">${isoParaBR(t.data)} · ${detalhe}</div>
+        <div class="dv">${brl(total)}</div>
+      </div>`;
+    }).join('');
+    totalGeral+=subtotal;
+    html += `<div class="card" style="margin-bottom:10px">
+      <div class="clb">${f.nome}${f.funcao?(' · '+f.funcao):''}</div>
+      ${rowsHtml}
+      <div class="dr" style="border-top:1px solid var(--bdr2);margin-top:4px;padding-top:8px">
+        <div class="dk" style="font-weight:600">Subtotal</div>
+        <div class="dv" style="color:#1d9e75">${brl(subtotal)}</div>
+      </div>
+    </div>`;
+  });
+  cont.innerHTML = html;
+  document.getElementById('fech-total').textContent = brl(totalGeral);
+}
+
+// ---- HISTÓRICO ----
+function renderHistoricoSelect(){
+  const sel = document.getElementById('hist-freelancer');
+  const cur = sel.value;
+  const opts = Object.entries(freelancersData).sort((a,b)=>a[1].nome.localeCompare(b[1].nome))
+    .map(([id,f])=>`<option value="${id}">${f.nome}</option>`).join('');
+  sel.innerHTML = '<option value="">Selecione...</option>'+opts;
+  if(cur) sel.value=cur;
+}
+function renderHistorico(){
+  const selEl = document.getElementById('hist-freelancer');
+  if(!selEl) return;
+  const fid = selEl.value;
+  const el = document.getElementById('hist-list');
+  const totalEl = document.getElementById('hist-total');
+  if(!fid){ el.innerHTML='<div class="empty"><i class="ti ti-history"></i>Selecione um freelancer</div>'; totalEl.textContent=''; return; }
+  const f = freelancersData[fid];
+  const arr = Object.entries(turnosData).filter(([id,t])=>t.freelancerId===fid).map(([id,t])=>({id,...t})).sort((a,b)=>b.data.localeCompare(a.data));
+  let total=0;
+  el.innerHTML = arr.map(t=>{
+    const tot = totalDiaTurno(t,f); total+=tot;
+    const detalhe = t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasTrabalhadas(t.entrada,t.saida).toFixed(2)+'h)');
+    return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${isoParaBR(t.data)} · ${detalhe}</div><div class="dv">${brl(tot)}</div></div>`;
+  }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
+  totalEl.textContent = arr.length ? ('Total acumulado: '+brl(total)) : '';
+}
+
+// ---- EXPORTAÇÃO EXCEL (replica o Gabarito) ----
+const EPOCH_UTC = Date.UTC(1899,11,30);
+function excelDateSerial(dateStr){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  return Math.floor((Date.UTC(y,m-1,d) - EPOCH_UTC) / 86400000);
+}
+function excelTimeSerial(timeStr){
+  const [h,m] = timeStr.split(':').map(Number);
+  return (h*60+m)/1440;
+}
+async function exportarExcelSemana(){
+  const turnos = turnosDaSemana(currentWeekStart).map(([id,t])=>({id,...t}));
+  if(!turnos.length){ toast('⚠️ Nenhum lançamento nesta semana'); return; }
+  const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Freelancers', {pageSetup:{orientation:'landscape'}});
+  ws.columns = [{width:14.14},{width:19},{width:15},{width:9},{width:9},{width:9},{width:13},{width:15},{width:17},{width:15}];
+  ws.getCell('A1').value = `CALI CRAVINGS — RELATÓRIO DE PAGAMENTO DE FREELANCERS SEMANA ${fmtDataBR(currentWeekStart)} A ${fmtDataBR(weekEnd)}`;
+  ws.getCell('A1').font = {name:'Arial', bold:true, size:13, color:{argb:'FF1F3864'}};
+  ws.getRow(1).height = 16.5;
+  const headers = ['Funcionário','Função','Data','Dia','Entrada','Saída','Horas Trabalhadas','Valor/Hora','Valor Fixo do Dia','Total do Dia'];
+  headers.forEach((h,i)=>{
+    const cell = ws.getRow(2).getCell(i+1);
+    cell.value = h;
+    cell.font = {name:'Arial', bold:true, size:10, color:{argb:'FFFFFFFF'}};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1F3864'}};
+  });
+  const byFl = {};
+  turnos.forEach(t=>{ (byFl[t.freelancerId]=byFl[t.freelancerId]||[]).push(t); });
+  let r = 3;
+  const ranges = [];
+  Object.keys(byFl).sort((a,b)=>(freelancersData[a]?.nome||'').localeCompare(freelancersData[b]?.nome||'')).forEach(fid=>{
+    const fl = freelancersData[fid] || {nome:'(removido)', funcao:''};
+    const start = r;
+    byFl[fid].sort((a,b)=>a.data.localeCompare(b.data)).forEach(t=>{
+      const row = ws.getRow(r);
+      const horas = horasTrabalhadas(t.entrada,t.saida);
+      const total = totalDiaTurno(t, fl);
+      row.getCell(1).value = fl.nome; row.getCell(1).font = {name:'Arial', size:10};
+      row.getCell(2).value = fl.funcao||''; row.getCell(2).font = {name:'Arial', size:10};
+      row.getCell(3).value = excelDateSerial(t.data); row.getCell(3).numFmt='mm-dd-yy'; row.getCell(3).font = {name:'Arial', size:10};
+      const [y,m,d] = t.data.split('-').map(Number);
+      row.getCell(4).value = DIAS_SEMANA[new Date(y,m-1,d).getDay()]; row.getCell(4).font = {name:'Arial', size:10};
+      if(t.entrada){ row.getCell(5).value = excelTimeSerial(t.entrada); row.getCell(5).numFmt='h:mm'; }
+      row.getCell(5).font = {name:'Arial', size:10, color:{argb:'FF0000FF'}};
+      if(t.saida){ row.getCell(6).value = excelTimeSerial(t.saida); row.getCell(6).numFmt='h:mm'; }
+      row.getCell(6).font = {name:'Arial', size:10, color:{argb:'FF0000FF'}};
+      row.getCell(7).value = horas; row.getCell(7).numFmt='0.00'; row.getCell(7).font = {name:'Arial', size:10};
+      if(t.valorHora){ row.getCell(8).value = t.valorHora; }
+      row.getCell(8).numFmt='\\R\\$\\ #,##0.00'; row.getCell(8).font = {name:'Arial', size:10, color:{argb:'FF0000FF'}};
+      if(t.valorFixoDia){ row.getCell(9).value = t.valorFixoDia; }
+      row.getCell(9).numFmt='\\R\\$\\ #,##0.00'; row.getCell(9).font = {name:'Arial', size:10};
+      row.getCell(10).value = total; row.getCell(10).numFmt='\\R\\$\\ #,##0.00'; row.getCell(10).font = {name:'Arial', size:10};
+      r++;
+    });
+    ranges.push({nome:fl.nome, start, end:r-1});
+  });
+  r++;
+  const subStart = r;
+  const thin = {style:'thin'};
+  const border = {top:thin,left:thin,bottom:thin,right:thin};
+  ranges.forEach(rg=>{
+    ws.mergeCells(`A${r}:F${r}`);
+    const label = ws.getCell(`A${r}`);
+    label.value = `Subtotal — ${rg.nome}`;
+    label.font = {name:'Arial', bold:true, size:10};
+    ['A','B','C','D','E','F'].forEach(col=>{
+      const c = ws.getCell(`${col}${r}`);
+      c.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}};
+      c.border = border;
+    });
+    const g = ws.getCell(`G${r}`);
+    g.value = {formula:`SUM(G${rg.start}:G${rg.end})`};
+    g.numFmt='0.00'; g.font={name:'Arial',bold:true,size:10};
+    g.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}}; g.border=border;
+    ['H','I'].forEach(col=>{
+      const c = ws.getCell(`${col}${r}`);
+      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}}; c.border=border;
+    });
+    const j = ws.getCell(`J${r}`);
+    j.value = {formula:`SUM(J${rg.start}:J${rg.end})`};
+    j.numFmt='\\R\\$\\ #,##0.00'; j.font={name:'Arial',bold:true,size:10};
+    j.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}}; j.border=border;
+    r++;
+  });
+  const subEnd = r-1;
+  r++;
+  ws.mergeCells(`A${r}:I${r}`);
+  const tg = ws.getCell(`A${r}`);
+  tg.value = 'TOTAL GERAL A PAGAR';
+  tg.font = {name:'Arial', bold:true, size:12};
+  tg.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFCE4D6'}};
+  const tgv = ws.getCell(`J${r}`);
+  tgv.value = {formula:`SUM(J${subStart}:J${subEnd})`};
+  tgv.numFmt = '\\R\\$\\ #,##0.00';
+  tgv.font = {name:'Arial', bold:true, size:12};
+  tgv.fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFCE4D6'}};
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download = 'Freelancers_'+isoDate(currentWeekStart)+'_a_'+isoDate(weekEnd)+'.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('✅ Excel exportado');
+}
+
+// ---- EXPORTAÇÃO PDF ----
+function exportarPdfSemana(){
+  const turnos = turnosDaSemana(currentWeekStart).map(([id,t])=>({id,...t}));
+  if(!turnos.length){ toast('⚠️ Nenhum lançamento nesta semana'); return; }
+  const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'landscape', unit:'pt'});
+  doc.setFontSize(13); doc.setTextColor(31,56,100); doc.setFont(undefined,'bold');
+  doc.text('CALI CRAVINGS — RELATÓRIO DE PAGAMENTO DE FREELANCERS SEMANA '+fmtDataBR(currentWeekStart)+' A '+fmtDataBR(weekEnd), 30, 30);
+  const byFl = {};
+  turnos.forEach(t=>{ (byFl[t.freelancerId]=byFl[t.freelancerId]||[]).push(t); });
+  const body=[];
+  const subtotalRowsIdx=[];
+  let totalGeral=0;
+  Object.keys(byFl).sort((a,b)=>(freelancersData[a]?.nome||'').localeCompare(freelancersData[b]?.nome||'')).forEach(fid=>{
+    const f = freelancersData[fid]||{nome:'(removido)',funcao:''};
+    let subtotal=0;
+    byFl[fid].sort((a,b)=>a.data.localeCompare(b.data)).forEach(t=>{
+      const horas=horasTrabalhadas(t.entrada,t.saida);
+      const total=totalDiaTurno(t,f); subtotal+=total;
+      const [y,m,d]=t.data.split('-').map(Number);
+      body.push([f.nome, f.funcao||'', isoParaBR(t.data), DIAS_SEMANA[new Date(y,m-1,d).getDay()], t.entrada||'', t.saida||'', horas?horas.toFixed(2):'', t.valorHora?brl(t.valorHora):'', t.valorFixoDia?brl(t.valorFixoDia):'', brl(total)]);
+    });
+    totalGeral+=subtotal;
+    subtotalRowsIdx.push(body.length);
+    body.push(['Subtotal — '+f.nome,'','','','','','','','',brl(subtotal)]);
+  });
+  doc.autoTable({
+    startY:45,
+    head:[['Funcionário','Função','Data','Dia','Entrada','Saída','Horas','Valor/Hora','Valor Fixo','Total do Dia']],
+    body,
+    styles:{fontSize:9, font:'helvetica'},
+    headStyles:{fillColor:[31,56,100], textColor:255, fontStyle:'bold'},
+    didParseCell: function(data){
+      if(data.section==='body' && subtotalRowsIdx.includes(data.row.index)){
+        data.cell.styles.fillColor=[217,225,242];
+        data.cell.styles.fontStyle='bold';
+      }
+    },
+    foot:[['TOTAL GERAL A PAGAR','','','','','','','','',brl(totalGeral)]],
+    footStyles:{fillColor:[252,228,214], fontStyle:'bold', fontSize:12, textColor:[122,59,10]}
+  });
+  doc.save('Freelancers_'+isoDate(currentWeekStart)+'_a_'+isoDate(weekEnd)+'.pdf');
+  toast('✅ PDF exportado');
+}
+</script>
+</body>
+</html>

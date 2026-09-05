@@ -1,4 +1,4 @@
-const CACHE_NAME = 'freelancers-cali-v1';
+const CACHE_NAME = 'freelancers-msh-v2';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {

@@ -381,6 +381,7 @@ let editingTurnoId = null;
 let editingFreelancerId = null;
 let turnoBackTarget = 's-home';
 let turnoDatasFixo = [];
+let _dataInited = false;
 
 // ---- NAV ----
 function goTo(id){
@@ -464,7 +465,6 @@ function showApp(){
 }
 
 // ---- DATA ----
-let _dataInited = false;
 function initData(){
   if(_dataInited) return;
   _dataInited = true;

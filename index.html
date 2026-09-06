@@ -56,6 +56,11 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .btn-danger:active{background:#fcebeb}
 .btn-add{background:none;border:1.5px dashed var(--bdr2);border-radius:var(--rs);padding:11px;font-size:14px;color:var(--hd);cursor:pointer;width:100%;font-family:inherit;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent}
 .btn-add:active{background:var(--surf2)}
+.btn-add-data{background:var(--hd);color:#fff;border:none;border-radius:var(--rs);padding:0 18px;font-size:20px;font-weight:600;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.btn-add-data:active{opacity:.85}
+.date-chip{display:flex;align-items:center;gap:7px;background:var(--surf2);border:1px solid var(--bdr2);border-radius:20px;padding:7px 8px 7px 13px;font-size:13px;color:var(--tx)}
+.date-chip button{background:none;border:none;color:var(--tx3);font-size:15px;line-height:1;cursor:pointer;padding:2px;-webkit-tap-highlight-color:transparent}
+.date-chip-empty{font-size:12px;color:var(--tx3);padding:4px 0}
 .sec-l{font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
 .clb{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:10px}
 .ri{background:var(--surf);border:.5px solid var(--bdr);border-radius:var(--r);padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -219,8 +224,16 @@ if('serviceWorker' in navigator){
     <div class="card">
       <label class="fl">Freelancer</label>
       <select id="tn-freelancer" onchange="onSelectFreelancerTurno()" style="margin-bottom:12px"></select>
-      <label class="fl">Data</label>
+      <label class="fl" id="tn-data-label">Data</label>
       <input id="tn-data" type="date" style="margin-bottom:12px">
+      <div id="tn-datas-fixo" style="display:none">
+        <label class="fl">Datas (selecione uma ou mais)</label>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input id="tn-fixo-data-input" type="date" style="flex:1">
+          <button type="button" class="btn-add-data" onclick="adicionarDataFixo()">+</button>
+        </div>
+        <div id="tn-datas-fixo-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+      </div>
       <label class="fl">Forma de pagamento</label>
       <div class="seg-row" style="margin-bottom:12px">
         <div class="seg ativo" id="tn-tipo-hora" onclick="tipoPagamentoChange('hora')">Por hora</div>
@@ -353,6 +366,7 @@ let currentWeekStart = getMonday(new Date());
 let editingTurnoId = null;
 let editingFreelancerId = null;
 let turnoBackTarget = 's-home';
+let turnoDatasFixo = [];
 
 // ---- NAV ----
 function goTo(id){
@@ -608,6 +622,9 @@ function abrirLancamento(){
   document.getElementById('tn-titulo').textContent='Lançar turno';
   document.getElementById('tn-freelancer').value='';
   document.getElementById('tn-data').value = isoDate(new Date());
+  document.getElementById('tn-fixo-data-input').value = isoDate(new Date());
+  turnoDatasFixo = [];
+  renderDatasFixo();
   tipoPagamentoChange('hora');
   document.getElementById('tn-entrada').value='';
   document.getElementById('tn-saida').value='';
@@ -623,6 +640,33 @@ function tipoPagamentoChange(tipo){
   document.getElementById('tn-tipo-hora').classList.toggle('ativo', tipo==='hora');
   document.getElementById('tn-tipo-fixo').classList.toggle('ativo', tipo==='fixo');
   window._tnTipo = tipo;
+  atualizarVisibilidadeData();
+}
+function atualizarVisibilidadeData(){
+  const usandoMultiData = window._tnTipo === 'fixo' && !editingTurnoId;
+  document.getElementById('tn-data-label').style.display = usandoMultiData ? 'none' : 'block';
+  document.getElementById('tn-data').style.display = usandoMultiData ? 'none' : 'block';
+  document.getElementById('tn-datas-fixo').style.display = usandoMultiData ? 'block' : 'none';
+}
+function adicionarDataFixo(){
+  const v = document.getElementById('tn-fixo-data-input').value;
+  if(!v){ toast('⚠️ Escolha uma data'); return; }
+  if(!turnoDatasFixo.includes(v)){
+    turnoDatasFixo.push(v);
+    turnoDatasFixo.sort();
+  }
+  renderDatasFixo();
+}
+function removerDataFixo(v){
+  turnoDatasFixo = turnoDatasFixo.filter(d=>d!==v);
+  renderDatasFixo();
+}
+function renderDatasFixo(){
+  const el = document.getElementById('tn-datas-fixo-lista');
+  if(!el) return;
+  el.innerHTML = turnoDatasFixo.length
+    ? turnoDatasFixo.map(v=>`<div class="date-chip">${isoParaBR(v)}<button type="button" onclick="removerDataFixo('${v}')">✕</button></div>`).join('')
+    : '<div class="date-chip-empty">Nenhuma data adicionada ainda</div>';
 }
 function onSelectFreelancerTurno(){
   const fid = document.getElementById('tn-freelancer').value;
@@ -634,24 +678,44 @@ function onSelectFreelancerTurno(){
 function salvarTurno(){
   const freelancerId = document.getElementById('tn-freelancer').value;
   if(!freelancerId){ toast('⚠️ Selecione o freelancer'); return; }
-  const data = document.getElementById('tn-data').value;
-  if(!data){ toast('⚠️ Informe a data'); return; }
   const tipo = window._tnTipo || 'hora';
+  const usandoMultiData = tipo==='fixo' && !editingTurnoId;
+  const data = document.getElementById('tn-data').value;
+  if(!usandoMultiData && !data){ toast('⚠️ Informe a data'); return; }
   const unidade = editingTurnoId ? (turnosData[editingTurnoId]?.unidade || getUnidadeAtual()) : getUnidadeAtual();
-  let payload = {freelancerId, data, unidade, observacao: (document.getElementById('tn-obs').value||'').trim(), criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now()};
+  const observacao = (document.getElementById('tn-obs').value||'').trim();
+
   if(tipo==='fixo'){
     const vf = parseFloat(document.getElementById('tn-valor-fixo').value);
     if(!vf || vf<=0){ toast('⚠️ Informe o valor fixo do dia'); return; }
-    payload.valorFixoDia = vf;
-    payload.entrada = null; payload.saida = null; payload.valorHora = null;
-  } else {
-    const entrada = document.getElementById('tn-entrada').value;
-    const saida = document.getElementById('tn-saida').value;
-    if(!entrada || !saida){ toast('⚠️ Informe entrada e saída'); return; }
-    const valorHora = parseFloat(document.getElementById('tn-valor-hora').value)||0;
-    payload.entrada = entrada; payload.saida = saida; payload.valorHora = valorHora;
-    payload.valorFixoDia = null;
+
+    if(usandoMultiData){
+      if(!turnoDatasFixo.length){ toast('⚠️ Adicione ao menos uma data'); return; }
+      turnoDatasFixo.forEach(d=>{
+        TN_REF.push({freelancerId, data:d, unidade, observacao, criadoEm:Date.now(), valorFixoDia:vf, entrada:null, saida:null, valorHora:null});
+      });
+      toast(`✅ ${turnoDatasFixo.length} turno(s) lançado(s)`);
+      goTo(turnoBackTarget);
+      return;
+    }
+
+    const payload = {freelancerId, data, unidade, observacao, criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now(), valorFixoDia: vf, entrada: null, saida: null, valorHora: null};
+    if(editingTurnoId){
+      TN_REF.child(editingTurnoId).update(payload);
+      toast('✅ Turno atualizado');
+    } else {
+      TN_REF.push(payload);
+      toast('✅ Turno lançado');
+    }
+    goTo(turnoBackTarget);
+    return;
   }
+
+  const entrada = document.getElementById('tn-entrada').value;
+  const saida = document.getElementById('tn-saida').value;
+  if(!entrada || !saida){ toast('⚠️ Informe entrada e saída'); return; }
+  const valorHora = parseFloat(document.getElementById('tn-valor-hora').value)||0;
+  const payload = {freelancerId, data, unidade, observacao, criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now(), entrada, saida, valorHora, valorFixoDia: null};
   if(editingTurnoId){
     TN_REF.child(editingTurnoId).update(payload);
     toast('✅ Turno atualizado');
@@ -678,6 +742,8 @@ function abrirEdicaoRapida(id, origem){
   if(!t) return;
   editingTurnoId = id;
   turnoBackTarget = origem || 's-fechamento';
+  turnoDatasFixo = [];
+  renderDatasFixo();
   document.getElementById('tn-titulo').textContent='Editar turno';
   document.getElementById('tn-freelancer').value = t.freelancerId;
   document.getElementById('tn-data').value = t.data;

@@ -153,7 +153,10 @@ if('serviceWorker' in navigator){
 <div class="screen active" id="s-unidade">
   <div class="unit-select">
     <img src="https://mshgroupbr.github.io/pedido-compras/msh-logo.png" alt="Masha Group">
-    <h1>Qual unidade?</h1>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <h1>Qual unidade?</h1>
+      <p style="color:var(--tx2);font-size:14px;font-weight:400">Testes e Freelancers</p>
+    </div>
     <div class="unit-cards">
       <div class="unit-card unit-cali" onclick="escolherUnidade('Cali Cravings')">
         <img src="https://mshgroupbr.github.io/pedido-compras/icon-cali.png" alt="Cali Cravings">

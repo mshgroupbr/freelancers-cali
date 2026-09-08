@@ -598,7 +598,9 @@ function turnosDaSemana(weekStart){
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate()+6);
   const startIso = isoDate(weekStart), endIso = isoDate(weekEnd);
   const u = getUnidadeAtual();
-  return Object.entries(turnosData).filter(([id,t])=> t.data>=startIso && t.data<=endIso && (t.unidade||'Cali Cravings')===u);
+  let arr = Object.entries(turnosData).filter(([id,t])=> t.data>=startIso && t.data<=endIso && (t.unidade||'Cali Cravings')===u);
+  if(currentRole==='lider' && liderInfo){ arr = arr.filter(([id,t])=>{ const f=freelancersData[t.freelancerId]; return f && f.setor===liderInfo.setor; }); }
+  return arr;
 }
 
 // ---- HOME ----

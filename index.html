@@ -134,6 +134,7 @@ body.tema-cali .hdr{background:var(--hd)}
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link rel="manifest" href="./manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Freelancers MSH">
@@ -202,9 +203,46 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
+    <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
     <div>
       <div class="sec-l">Lançamentos recentes</div>
       <div id="tn-recentes" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ANALISE POR SETOR -->
+<div class="screen" id="s-setor">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Análise por Setor</h1><p>Bar, Cozinha e Salão — Cali x Texas</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <label class="fl">De</label>
+      <input id="setor-de" type="date" style="margin-bottom:12px">
+      <label class="fl">Até</label>
+      <input id="setor-ate" type="date" style="margin-bottom:12px">
+      <button class="btn-or" onclick="atualizarGraficosSetor()" style="margin-top:4px"><i class="ti ti-filter"></i> Aplicar filtro</button>
+    </div>
+    <div class="card">
+      <div class="sec-l">Gasto total por setor — Cali x Texas</div>
+      <canvas id="chart-setor-total" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="sec-l">Evolução do gasto (semanal)</div>
+      <canvas id="chart-setor-evolucao" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="sec-l">Participação % de cada setor</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><div style="text-align:center;font-size:12px;color:var(--tx2);margin-bottom:4px">Cali Cravings</div><canvas id="chart-setor-pct-cali" height="180"></canvas></div>
+        <div style="flex:1"><div style="text-align:center;font-size:12px;color:var(--tx2);margin-bottom:4px">Texas Country Bar</div><canvas id="chart-setor-pct-texas" height="180"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-l">Custo médio por turno, por setor</div>
+      <canvas id="chart-setor-media" height="220"></canvas>
     </div>
   </div>
 </div>
@@ -903,6 +941,100 @@ function mudarSemana(delta){
   currentWeekStart.setDate(currentWeekStart.getDate()+delta*7);
   renderFechamento();
   renderHome();
+}
+// ---- ANALISE POR SETOR ----
+function inferirSetor(f){
+  if(!f) return 'Outros';
+  if(f.setor) return f.setor;
+  const fc = (f.funcao||'').trim().toLowerCase();
+  if(/barman|bartender|barback/.test(fc)) return 'Bar';
+  if(/cozinh/.test(fc)) return 'Cozinha';
+  if(/gar[cç]om|gar[cç]onete|hostess|cumim|recep/.test(fc)) return 'Salão';
+  return 'Outros';
+}
+const CHARTS_SETOR = {};
+function destruirChartSetor(id){
+  if(CHARTS_SETOR[id]){ CHARTS_SETOR[id].destroy(); delete CHARTS_SETOR[id]; }
+}
+function renderAnaliseSetor(){
+  if(currentRole==='lider'){ goTo('s-home'); return; }
+  const deEl = document.getElementById('setor-de');
+  const ateEl = document.getElementById('setor-ate');
+  if(deEl && ateEl && (!deEl.value || !ateEl.value)){
+    const hoje = new Date();
+    const ate = hoje.toISOString().slice(0,10);
+    const deD = new Date(hoje); deD.setDate(deD.getDate()-29);
+    const de = deD.toISOString().slice(0,10);
+    deEl.value = de; ateEl.value = ate;
+  }
+  atualizarGraficosSetor();
+}
+function atualizarGraficosSetor(){
+  if(typeof Chart==='undefined') return;
+  const de = document.getElementById('setor-de').value;
+  const ate = document.getElementById('setor-ate').value;
+  const UNIDADES = ['Cali Cravings','Texas Country Bar'];
+  const SETORES = ['Bar','Cozinha','Salão'];
+  const CORES_SETOR = {Bar:'#C9A227', Cozinha:'#1d9e75', 'Salão':'#1F3864', Outros:'#999993'};
+  const CORES_UNIDADE = {'Cali Cravings':'#1d9e75','Texas Country Bar':'#a32d2d'};
+  const turnos = Object.entries(turnosData).filter(([id,tn])=>{
+    if(!tn.data) return false;
+    if(de && tn.data<de) return false;
+    if(ate && tn.data>ate) return false;
+    return true;
+  });
+  const totalPorSetorUnidade = {};
+  const contagemPorSetorUnidade = {};
+  UNIDADES.forEach(u=>{
+    totalPorSetorUnidade[u]={}; contagemPorSetorUnidade[u]={};
+    SETORES.forEach(s=>{ totalPorSetorUnidade[u][s]=0; contagemPorSetorUnidade[u][s]=0; });
+  });
+  const semanaMap = {};
+  turnos.forEach(([id,tn])=>{
+    const f = freelancersData[tn.freelancerId];
+    const unidade = tn.unidade || (f&&f.unidade) || 'Cali Cravings';
+    if(!UNIDADES.includes(unidade)) return;
+    const setor = inferirSetor(f);
+    const valor = totalDiaTurno(tn, f);
+    if(SETORES.includes(setor)){
+      totalPorSetorUnidade[unidade][setor] += valor;
+      contagemPorSetorUnidade[unidade][setor] += 1;
+    }
+    const dt = new Date(tn.data+'T00:00:00');
+    const monday = getMonday(dt);
+    const wk = monday.toISOString().slice(0,10);
+    if(!semanaMap[wk]) semanaMap[wk]={};
+    semanaMap[wk][unidade] = (semanaMap[wk][unidade]||0) + valor;
+  });
+  destruirChartSetor('total');
+  CHARTS_SETOR['total'] = new Chart(document.getElementById('chart-setor-total').getContext('2d'), {
+    type:'bar',
+    data:{ labels: SETORES, datasets: UNIDADES.map(u=>({ label:u, data: SETORES.map(s=>Math.round(totalPorSetorUnidade[u][s]*100)/100), backgroundColor: CORES_UNIDADE[u] })) },
+    options:{ responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}} }
+  });
+  const semanasOrdenadas = Object.keys(semanaMap).sort();
+  destruirChartSetor('evolucao');
+  CHARTS_SETOR['evolucao'] = new Chart(document.getElementById('chart-setor-evolucao').getContext('2d'), {
+    type:'line',
+    data:{ labels: semanasOrdenadas.map(s=>fmtDataBR(new Date(s+'T00:00:00'))), datasets: UNIDADES.map(u=>({ label:u, data: semanasOrdenadas.map(wk=>Math.round((semanaMap[wk][u]||0)*100)/100), borderColor: CORES_UNIDADE[u], backgroundColor: CORES_UNIDADE[u], tension:0.3, fill:false })) },
+    options:{ responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}} }
+  });
+  ['cali','texas'].forEach((key,i)=>{
+    const u = UNIDADES[i];
+    destruirChartSetor('pct-'+key);
+    const dataVals = SETORES.map(s=>Math.round(totalPorSetorUnidade[u][s]*100)/100);
+    CHARTS_SETOR['pct-'+key] = new Chart(document.getElementById('chart-setor-pct-'+key).getContext('2d'), {
+      type:'doughnut',
+      data:{ labels:SETORES, datasets:[{ data:dataVals, backgroundColor: SETORES.map(s=>CORES_SETOR[s]) }] },
+      options:{ responsive:true, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:10}}}} }
+    });
+  });
+  destruirChartSetor('media');
+  CHARTS_SETOR['media'] = new Chart(document.getElementById('chart-setor-media').getContext('2d'), {
+    type:'bar',
+    data:{ labels: SETORES, datasets: UNIDADES.map(u=>({ label:u, data: SETORES.map(s=>{ const c = contagemPorSetorUnidade[u][s]; return c>0 ? Math.round((totalPorSetorUnidade[u][s]/c)*100)/100 : 0; }), backgroundColor: CORES_UNIDADE[u] })) },
+    options:{ responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}} }
+  });
 }
 function renderFechamento(){
   if(currentRole==='lider'){ goTo('s-home'); return; }

@@ -74,6 +74,7 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
 .badge{font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;flex-shrink:0}
 .bs{background:var(--gr-l);color:#0f6e56}
 .bi{background:var(--surf2);color:var(--tx3)}
+.bw{background:#fbe4e4;color:#c0392b}
 .empty{text-align:center;padding:32px 20px;color:var(--tx3);font-size:14px}
 .empty i{font-size:36px;display:block;margin-bottom:10px;opacity:.4}
 .fl{font-size:12px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:block}
@@ -283,6 +284,7 @@ if('serviceWorker' in navigator){
       <div class="seg-row" style="margin-bottom:12px">
         <div class="seg ativo" id="tn-tipo-hora" onclick="tipoPagamentoChange('hora')">Por hora</div>
         <div class="seg" id="tn-tipo-fixo" onclick="tipoPagamentoChange('fixo')">Valor fixo do dia</div>
+        <div class="seg gerente-only" id="tn-tipo-adiant" onclick="tipoPagamentoChange('adiant')">Adiantamento</div>
       </div>
       <div id="tn-bloco-hora">
         <label class="fl">Entrada</label>
@@ -309,6 +311,11 @@ if('serviceWorker' in navigator){
       <div id="tn-bloco-fixo" style="display:none">
         <label class="fl">Valor fixo do dia (R$)</label>
         <input id="tn-valor-fixo" type="number" step="0.01" placeholder="0,00" style="margin-bottom:12px">
+      </div>
+      <div id="tn-bloco-adiant" style="display:none">
+        <label class="fl">Valor do adiantamento (R$)</label>
+        <input id="tn-valor-adiant" type="number" step="0.01" placeholder="0,00" style="margin-bottom:12px">
+        <div class="empty" style="text-align:left;padding:0 0 4px;font-size:12.5px;color:#e24b4a"><i class="ti ti-alert-triangle"></i> Esse valor entra como desconto no relatório do colaborador.</div>
       </div>
       <label class="fl">Observação (opcional)</label>
       <textarea id="tn-obs" rows="2" placeholder="Alguma observação sobre o turno..."></textarea>
@@ -661,11 +668,11 @@ function renderTurnosRecentes(){
   el.innerHTML = arr.map(t=>{
     const f = freelancersData[t.freelancerId]||{nome:'(removido)'};
     const total = totalDiaTurno(t,f);
-    const detalhe = t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||''));
+    const detalhe = t.tipo==='adiantamento' ? '⚠️ Adiantamento' : (t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||'')));
     return `<div class="ri" onclick="abrirEdicaoRapida('${t.id}','s-home')">
       <div class="rico s"><i class="ti ti-user"></i></div>
       <div class="rm"><div class="rt">${f.nome}</div><div class="rs">${isoParaBR(t.data)} · ${detalhe}</div></div>
-      <div class="badge bs">${brl(total)}</div>
+      <div class="badge ${total<0?'bw':'bs'}">${brl(total)}</div>
     </div>`;
   }).join('');
 }
@@ -773,6 +780,7 @@ function abrirLancamento(){
   document.getElementById('tn-saida').value='';
   document.getElementById('tn-valor-hora').value='';
   document.getElementById('tn-valor-fixo').value='';
+  document.getElementById('tn-valor-adiant').value='';
   document.getElementById('tn-obs').value='';
   document.getElementById('tn-tem-intervalo').checked=false;
   document.getElementById('tn-intervalo-inicio').value='';
@@ -785,8 +793,10 @@ function abrirLancamento(){
 function tipoPagamentoChange(tipo){
   document.getElementById('tn-bloco-hora').style.display = tipo==='hora'?'block':'none';
   document.getElementById('tn-bloco-fixo').style.display = tipo==='fixo'?'block':'none';
+  document.getElementById('tn-bloco-adiant').style.display = tipo==='adiant'?'block':'none';
   document.getElementById('tn-tipo-hora').classList.toggle('ativo', tipo==='hora');
   document.getElementById('tn-tipo-fixo').classList.toggle('ativo', tipo==='fixo');
+  document.getElementById('tn-tipo-adiant').classList.toggle('ativo', tipo==='adiant');
   window._tnTipo = tipo;
   atualizarVisibilidadeData();
 }
@@ -863,6 +873,21 @@ function salvarTurno(){
     return;
   }
 
+  if(tipo==='adiant'){
+    const va = parseFloat(document.getElementById('tn-valor-adiant').value);
+    if(!va || va<=0){ toast('⚠️ Informe o valor do adiantamento'); return; }
+    const payload = {freelancerId, data, unidade, observacao, criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now(), tipo:'adiantamento', valorFixoDia: -va, entrada: null, saida: null, valorHora: null, intervaloInicio: null, intervaloFim: null, intervaloDesconta: null};
+    if(editingTurnoId){
+      TN_REF.child(editingTurnoId).update(payload);
+      toast('✅ Adiantamento atualizado');
+    } else {
+      TN_REF.push(payload);
+      toast('✅ Adiantamento lançado');
+    }
+    goTo(turnoBackTarget);
+    return;
+  }
+
   const entrada = document.getElementById('tn-entrada').value;
   const saida = document.getElementById('tn-saida').value;
   if(!entrada || !saida){ toast('⚠️ Informe entrada e saída'); return; }
@@ -907,7 +932,19 @@ function abrirEdicaoRapida(id, origem){
   document.getElementById('tn-titulo').textContent='Editar turno';
   document.getElementById('tn-freelancer').value = t.freelancerId;
   document.getElementById('tn-data').value = t.data;
-  if(t.valorFixoDia){
+  if(t.tipo==='adiantamento'){
+    tipoPagamentoChange('adiant');
+    document.getElementById('tn-valor-adiant').value = Math.abs(t.valorFixoDia||0);
+    document.getElementById('tn-valor-fixo').value='';
+    document.getElementById('tn-entrada').value='';
+    document.getElementById('tn-saida').value='';
+    document.getElementById('tn-valor-hora').value='';
+    document.getElementById('tn-tem-intervalo').checked=false;
+    document.getElementById('tn-intervalo-inicio').value='';
+    document.getElementById('tn-intervalo-fim').value='';
+    document.getElementById('tn-intervalo-desconta').checked=true;
+    toggleIntervaloTurno();
+  } else if(t.valorFixoDia){
     tipoPagamentoChange('fixo');
     document.getElementById('tn-valor-fixo').value = t.valorFixoDia;
     document.getElementById('tn-entrada').value='';
@@ -1062,10 +1099,10 @@ function renderFechamento(){
       const total = totalDiaTurno(t, f);
       subtotal+=total;
       const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
-      const detalhe = t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt);
+      const detalhe = t.tipo==='adiantamento' ? '⚠️ Adiantamento' : (t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt));
       return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-fechamento')">
         <div class="dk">${isoParaBR(t.data)} · ${detalhe}</div>
-        <div class="dv">${brl(total)}</div>
+        <div class="dv"${total<0?' style="color:#c0392b"':''}>${brl(total)}</div>
       </div>`;
     }).join('');
     totalGeral+=subtotal;
@@ -1105,8 +1142,8 @@ function renderHistorico(){
   el.innerHTML = arr.map(t=>{
     const tot = totalDiaTurno(t,f); total+=tot;
     const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
-    const detalhe = t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt);
-    return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${isoParaBR(t.data)} · ${detalhe}</div><div class="dv">${brl(tot)}</div></div>`;
+    const detalhe = t.tipo==='adiantamento' ? '⚠️ Adiantamento' : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
+    return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${isoParaBR(t.data)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
   }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
   totalEl.textContent = arr.length ? ('Total acumulado: '+brl(total)) : '';
 }
@@ -1149,8 +1186,9 @@ async function exportarExcelSemana(){
       const row = ws.getRow(r);
       const horas = horasComIntervalo(t);
       const total = totalDiaTurno(t, fl);
+      const ehAdiant = t.tipo==='adiantamento';
       row.getCell(1).value = fl.nome; row.getCell(1).font = {name:'Arial', size:10};
-      row.getCell(2).value = fl.funcao||''; row.getCell(2).font = {name:'Arial', size:10};
+      row.getCell(2).value = ehAdiant ? 'ADIANTAMENTO' : (fl.funcao||''); row.getCell(2).font = ehAdiant ? {name:'Arial', size:10, bold:true, color:{argb:'FFC0392B'}} : {name:'Arial', size:10};
       row.getCell(3).value = excelDateSerial(t.data); row.getCell(3).numFmt='mm-dd-yy'; row.getCell(3).font = {name:'Arial', size:10};
       const [y,m,d] = t.data.split('-').map(Number);
       row.getCell(4).value = DIAS_SEMANA[new Date(y,m-1,d).getDay()]; row.getCell(4).font = {name:'Arial', size:10};
@@ -1163,7 +1201,7 @@ async function exportarExcelSemana(){
       row.getCell(8).numFmt='\\R\\$\\ #,##0.00'; row.getCell(8).font = {name:'Arial', size:10, color:{argb:'FF0000FF'}};
       if(t.valorFixoDia){ row.getCell(9).value = t.valorFixoDia; }
       row.getCell(9).numFmt='\\R\\$\\ #,##0.00'; row.getCell(9).font = {name:'Arial', size:10};
-      row.getCell(10).value = total; row.getCell(10).numFmt='\\R\\$\\ #,##0.00'; row.getCell(10).font = {name:'Arial', size:10};
+      row.getCell(10).value = total; row.getCell(10).numFmt='\\R\\$\\ #,##0.00'; row.getCell(10).font = ehAdiant ? {name:'Arial', size:10, bold:true, color:{argb:'FFC0392B'}} : {name:'Arial', size:10};
       r++;
     });
     ranges.push({nome:fl.nome, start, end:r-1});
@@ -1239,7 +1277,7 @@ function exportarPdfSemana(){
       const horas=horasComIntervalo(t);
       const total=totalDiaTurno(t,f); subtotal+=total;
       const [y,m,d]=t.data.split('-').map(Number);
-      body.push([f.nome, f.funcao||'', isoParaBR(t.data), DIAS_SEMANA[new Date(y,m-1,d).getDay()], t.entrada||'', t.saida||'', horas?horas.toFixed(2):'', t.valorHora?brl(t.valorHora):'', t.valorFixoDia?brl(t.valorFixoDia):'', brl(total)]);
+      body.push([f.nome, t.tipo==='adiantamento' ? 'ADIANTAMENTO' : (f.funcao||''), isoParaBR(t.data), DIAS_SEMANA[new Date(y,m-1,d).getDay()], t.entrada||'', t.saida||'', horas?horas.toFixed(2):'', t.valorHora?brl(t.valorHora):'', t.valorFixoDia?brl(t.valorFixoDia):'', brl(total)]);
     });
     totalGeral+=subtotal;
     subtotalRowsIdx.push(body.length);
@@ -1255,6 +1293,9 @@ function exportarPdfSemana(){
       if(data.section==='body' && subtotalRowsIdx.includes(data.row.index)){
         data.cell.styles.fillColor=[217,225,242];
         data.cell.styles.fontStyle='bold';
+      }
+      if(data.section==='body' && body[data.row.index] && body[data.row.index][1]==='ADIANTAMENTO'){
+        data.cell.styles.textColor=[192,57,43];
       }
     },
     foot:[['TOTAL GERAL A PAGAR','','','','','','','','',brl(totalGeral)]],

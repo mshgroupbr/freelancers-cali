@@ -200,6 +200,7 @@ if('serviceWorker' in navigator){
     </div>
     <div class="rs" id="home-role-info" style="margin:-6px 0 2px"></div>
     <button class="btn-or" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
+    <button class="btn-excel-home gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
     <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
@@ -769,6 +770,7 @@ function excluirFreelancer(){
 function abrirLancamento(){
   editingTurnoId = null;
   turnoBackTarget = 's-home';
+  document.getElementById('tn-tipo-adiant').style.display='';
   document.getElementById('tn-titulo').textContent='Lançar turno';
   document.getElementById('tn-freelancer').value='';
   document.getElementById('tn-data').value = isoDate(new Date());
@@ -789,6 +791,11 @@ function abrirLancamento(){
   toggleIntervaloTurno();
   document.getElementById('tn-del-btn').style.display='none';
   goTo('s-turno');
+}
+function abrirLancamentoAdiantamento(){
+  abrirLancamento();
+  document.getElementById('tn-titulo').textContent='Lançar adiantamento';
+  tipoPagamentoChange('adiant');
 }
 function tipoPagamentoChange(tipo){
   document.getElementById('tn-bloco-hora').style.display = tipo==='hora'?'block':'none';
@@ -874,6 +881,10 @@ function salvarTurno(){
   }
 
   if(tipo==='adiant'){
+    if(editingTurnoId && turnosData[editingTurnoId] && turnosData[editingTurnoId].tipo!=='adiantamento'){
+      toast('⚠️ Não é possível converter um turno normal em adiantamento (o valor do dia trabalhado seria perdido)');
+      return;
+    }
     const va = parseFloat(document.getElementById('tn-valor-adiant').value);
     if(!va || va<=0){ toast('⚠️ Informe o valor do adiantamento'); return; }
     const payload = {freelancerId, data, unidade, observacao, criadoEm: editingTurnoId ? (turnosData[editingTurnoId]?.criadoEm||Date.now()) : Date.now(), tipo:'adiantamento', valorFixoDia: -va, entrada: null, saida: null, valorHora: null, intervaloInicio: null, intervaloFim: null, intervaloDesconta: null};
@@ -929,6 +940,10 @@ function abrirEdicaoRapida(id, origem){
   turnoBackTarget = origem || 's-fechamento';
   turnoDatasFixo = [];
   renderDatasFixo();
+  // Segurança: só permite ficar no tipo Adiantamento se o lançamento já era um adiantamento.
+  // Isso evita que, ao editar um turno normal (hora/fixo), o gerente troque sem querer para
+  // Adiantamento e apague o valor do dia trabalhado (o update() sobrescreveria o registro).
+  document.getElementById('tn-tipo-adiant').style.display = (t.tipo==='adiantamento') ? '' : 'none';
   document.getElementById('tn-titulo').textContent='Editar turno';
   document.getElementById('tn-freelancer').value = t.freelancerId;
   document.getElementById('tn-data').value = t.data;

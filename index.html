@@ -457,6 +457,7 @@ const db = firebase.database();
 const FL_REF = db.ref('freelancers');
 const TN_REF = db.ref('turnos');
 const LIDERES_REF = db.ref('lideresAutorizados');
+const VENDAS_REF = db.ref('gestao_vendas');
 
 const SENHAS = ['127127','128128','129129','130130','000813','416100'];
 const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -1021,7 +1022,7 @@ function renderAnaliseSetor(){
   }
   atualizarGraficosSetor();
 }
-function atualizarGraficosSetor(){
+async function atualizarGraficosSetor(){
   if(typeof Chart==='undefined') return;
   const de = document.getElementById('setor-de').value;
   const ate = document.getElementById('setor-ate').value;
@@ -1065,10 +1066,31 @@ function atualizarGraficosSetor(){
     options:{ responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}} }
   });
   const semanasOrdenadas = Object.keys(semanaMap).sort();
+  function unidadeParaSlugFL(u){ return (u==='Texas Country Bar') ? 'texas' : 'cali'; }
+  function diasDaSemanaFL(mondayIso){
+    const arr=[]; const base=new Date(mondayIso+'T00:00:00');
+    for(let i=0;i<7;i++){ const d=new Date(base); d.setDate(base.getDate()+i); arr.push(d.toISOString().slice(0,10)); }
+    return arr;
+  }
+  function somaVendasSemanaFL(mondayIso, slug){
+    const dias = diasDaSemanaFL(mondayIso);
+    return Promise.all(dias.map(function(d){
+      return VENDAS_REF.child(slug).child(d).once('value').then(function(snap){
+        const obj = snap.val()||{};
+        return Object.values(obj).reduce(function(s,row){ return s+(Number(row && row.vLiquida)||0); },0);
+      });
+    })).then(function(vals){ return vals.reduce(function(s,v){ return s+v; },0); });
+  }
+  const CORES_VENDAS_SETOR = {'Cali Cravings':'#2b7fd1', 'Texas Country Bar':'#c9932a'};
+  const datasetsVendasSetor = await Promise.all(UNIDADES.map(async function(u){
+    const slug = unidadeParaSlugFL(u);
+    const valores = await Promise.all(semanasOrdenadas.map(function(wk){ return somaVendasSemanaFL(wk, slug); }));
+    return { label:'Vendas '+u, data: valores.map(function(v){ return Math.round(v*100)/100; }), borderColor: CORES_VENDAS_SETOR[u], backgroundColor: CORES_VENDAS_SETOR[u], borderDash:[6,4], tension:0.3, fill:false };
+  }));
   destruirChartSetor('evolucao');
   CHARTS_SETOR['evolucao'] = new Chart(document.getElementById('chart-setor-evolucao').getContext('2d'), {
     type:'line',
-    data:{ labels: semanasOrdenadas.map(s=>fmtDataBR(new Date(s+'T00:00:00'))), datasets: UNIDADES.map(u=>({ label:u, data: semanasOrdenadas.map(wk=>Math.round((semanaMap[wk][u]||0)*100)/100), borderColor: CORES_UNIDADE[u], backgroundColor: CORES_UNIDADE[u], tension:0.3, fill:false })) },
+    data:{ labels: semanasOrdenadas.map(s=>fmtDataBR(new Date(s+'T00:00:00'))), datasets: UNIDADES.map(u=>({ label:u, data: semanasOrdenadas.map(wk=>Math.round((semanaMap[wk][u]||0)*100)/100), borderColor: CORES_UNIDADE[u], backgroundColor: CORES_UNIDADE[u], tension:0.3, fill:false })).concat(datasetsVendasSetor) },
     options:{ responsive:true, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}} }
   });
   ['cali','texas'].forEach((key,i)=>{

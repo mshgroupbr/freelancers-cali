@@ -1150,10 +1150,72 @@ function renderFechamento(){
         <div class="dk" style="font-weight:600">Subtotal</div>
         <div class="dv" style="color:#1d9e75">${brl(subtotal)}</div>
       </div>
+      <button class="btn-sm" style="margin-top:8px;width:100%" onclick="gerarReciboFreelancer('${fid}')"><i class="ti ti-receipt"></i> Gerar recibo</button>
     </div>`;
   });
   cont.innerHTML = html;
   document.getElementById('fech-total').textContent = brl(totalGeral);
+}
+
+// ---- RECIBOS ----
+const EMPREGADORES_RECIBO = {
+  'Texas Country Bar': {nome:'TEXAS COUNTRY BAR LTDA', cnpj:'66.510.669/0001-31'},
+  'Cali Cravings': {nome:'CALI PARTNERS LTDA', cnpj:'63.462.653/0001-02'}
+};
+function gerarReciboFreelancer(fid){
+  const f = freelancersData[fid];
+  if(!f){ toast('Freelancer não encontrado'); return; }
+  const turnos = turnosDaSemana(currentWeekStart).filter(([id,t])=>t.freelancerId===fid).map(([id,t])=>({id,...t}));
+  if(!turnos.length){ toast('Sem lançamentos nesta semana para esse freelancer'); return; }
+  const diarias = turnos.filter(t=>t.tipo!=='adiantamento').sort((a,b)=>a.data.localeCompare(b.data));
+  const adiantamentos = turnos.filter(t=>t.tipo==='adiantamento');
+  if(!diarias.length){ toast('Sem dias de diária lançados — apenas adiantamento, não é possível gerar recibo'); return; }
+  const valorDiarias = diarias.reduce((s,t)=>s+totalDiaTurno(t,f),0);
+  const valorJaPago = adiantamentos.reduce((s,t)=>s+Math.abs(totalDiaTurno(t,f)),0);
+  const liquido = valorDiarias - valorJaPago;
+
+  const porMes = {};
+  diarias.forEach(t=>{
+    const [y,m,d] = t.data.split('-');
+    const chave = y+'-'+m;
+    (porMes[chave]=porMes[chave]||[]).push(d.replace(/^0/,''));
+  });
+  const chaves = Object.keys(porMes).sort();
+  const linhasDiarias = chaves.map(chave=>{
+    const [y,m] = chave.split('-');
+    return porMes[chave].join(',')+'/'+m+' /'+y;
+  }).join(' + ');
+
+  const unidade = f.unidade || 'Cali Cravings';
+  const emp = EMPREGADORES_RECIBO[unidade] || EMPREGADORES_RECIBO['Cali Cravings'];
+  const [anoRef,mesRef] = chaves[chaves.length-1].split('-');
+
+  const w = window.open('', '_blank');
+  if(!w){ toast('⚠️ Permita pop-ups para gerar o recibo'); return; }
+  const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo - '+f.nome+'</title>'+
+  '<style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;padding:40px;color:#111;font-size:15px}'+
+    '.lbl{font-weight:bold}'+
+    '.box{border:1.5px solid #111;padding:8px 12px;font-weight:bold;margin:18px 0;display:flex;justify-content:space-between}'+
+    '.boxtitle{border:1.5px solid #111;padding:6px 10px;text-align:center;font-weight:bold;margin:18px 0}'+
+    '.linha{margin:14px 0;display:flex;justify-content:space-between;border-bottom:1px dotted #111;padding-bottom:2px}'+
+    '.linha .v{font-weight:bold;white-space:nowrap;margin-left:8px}'+
+    '.assinatura{margin-top:60px;text-align:center}'+
+    '.assinatura .linha-ass{border-top:1px solid #111;width:320px;margin:0 auto 6px auto}'+
+  '</style></head><body>'+
+    '<div><span class="lbl">Empregador:</span> '+emp.nome+'</div>'+
+    '<div style="margin-top:6px"><span class="lbl">CNPJ:</span> '+emp.cnpj+'</div>'+
+    '<div class="boxtitle">RECIBO '+mesRef+'/'+anoRef+'/Taxa</div>'+
+    '<div class="linha"><span>Diárias: '+linhasDiarias+'</span><span class="v">'+brl(valorDiarias)+'</span></div>'+
+    (valorJaPago>0 ? ('<div class="linha"><span>Valor já pago</span><span class="v">'+brl(valorJaPago)+'</span></div>') : '')+
+    '<div class="box"><span>Líquido a receber</span><span>'+brl(liquido)+'</span></div>'+
+    '<div style="margin-top:20px">Declaro ter recebido o valor de '+brl(liquido)+' acima discriminado.</div>'+
+    '<div style="margin-top:50px;text-align:right;padding-right:40px">Itapema, ____ /'+mesRef+'/'+anoRef+'.</div>'+
+    '<div class="assinatura"><div class="linha-ass"></div>'+f.nome.toUpperCase()+'</div>'+
+    '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>'+
+  '</body></html>';
+  w.document.write(html);
+  w.document.close();
 }
 
 // ---- HISTÓRICO ----

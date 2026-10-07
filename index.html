@@ -1168,7 +1168,9 @@ function renderFechamento(){
       </div>`;
     }).join('');
     totalGeral+=subtotal;
-    fechResumo.push({fid, nome:f.nome, funcao:f.funcao||'', unidade:f.unidade||'', pix:f.pix||'', subtotal, plano:((planoData[isoDate(currentWeekStart)]||{})[fid])||null});
+    const _pl = ((planoData[isoDate(currentWeekStart)]||{})[fid])||null;
+    const _pg = !!(_pl && _pl.pago && _pl.turnoId && turnosData[_pl.turnoId]);
+    fechResumo.push({fid, nome:f.nome, funcao:f.funcao||'', unidade:f.unidade||'', pix:f.pix||'', subtotal:(_pg?subtotal+_pl.valor:subtotal), pago:_pg, plano:_pl});
     html += `<div class="card" style="margin-bottom:10px">
       <div class="clb">${f.nome}${f.funcao?(' · '+f.funcao):''}</div>
       ${rowsHtml}
@@ -1199,9 +1201,10 @@ function atualizarPlanoTotal(){
   const com = fechResumo.filter(r=>r.plano && r.plano.valor>0);
   const tot = com.reduce((s,r)=>s+r.plano.valor,0);
   const sub = fechResumo.reduce((s,r)=>s+r.subtotal,0);
+  const pagoTot = com.filter(r=>r.pago).reduce((s,r)=>s+r.plano.valor,0);
   el.textContent = brl(tot);
   const info = document.getElementById('fech-plano-info');
-  if(info) info.textContent = com.length ? (com.length+' de '+fechResumo.length+' colaboradores · saldo restante '+brl(sub-tot)) : 'Nenhuma sugestão de adiantamento definida nesta semana';
+  if(info) info.textContent = com.length ? (com.length+' de '+fechResumo.length+' colaboradores · saldo restante '+brl(sub-tot)+(pagoTot?' · já transferido '+brl(pagoTot):'')) : 'Nenhuma sugestão de adiantamento definida nesta semana';
 }
 function relatorioAdiantamentos(){
   const com = fechResumo.filter(r=>r.plano && r.plano.valor>0).sort((a,b)=>((a.plano.data||'9999')+a.nome).localeCompare((b.plano.data||'9999')+b.nome));
@@ -1209,12 +1212,13 @@ function relatorioAdiantamentos(){
   const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
   const tot = com.reduce((s,r)=>s+r.plano.valor,0);
   const totSub = com.reduce((s,r)=>s+r.subtotal,0);
+  const pagoT = com.filter(r=>r.pago).reduce((s,r)=>s+r.plano.valor,0);
   const porData = {}; com.forEach(r=>{ const k=r.plano.data||''; porData[k]=(porData[k]||0)+r.plano.valor; });
-  const linhas = com.map(r=>'<tr><td>'+r.nome+(r.funcao?'<br><small>'+r.funcao+'</small>':'')+'</td><td>'+r.unidade+'</td><td>'+(r.pix||'<span style="color:#c0392b">sem chave</span>')+'</td><td class="n">'+brl(r.subtotal)+'</td><td class="n"><b>'+brl(r.plano.valor)+'</b></td><td>'+(r.plano.data?isoParaBR(r.plano.data):'-')+'</td><td class="n">'+brl(r.subtotal-r.plano.valor)+'</td></tr>').join('');
+  const linhas = com.map(r=>'<tr><td>'+r.nome+(r.funcao?'<br><small>'+r.funcao+'</small>':'')+'</td><td>'+r.unidade+'</td><td>'+(r.pix||'<span style="color:#c0392b">sem chave</span>')+'</td><td class="n">'+brl(r.subtotal)+'</td><td class="n"><b>'+brl(r.plano.valor)+'</b></td><td>'+(r.plano.data?isoParaBR(r.plano.data):'-')+'</td><td class="n">'+brl(r.subtotal-r.plano.valor)+'</td><td>'+(r.pago?'✔ Pago':'Pendente')+'</td></tr>').join('');
   const datas = Object.keys(porData).sort().map(k=>'<div>'+(k?isoParaBR(k):'Sem data')+': <b>'+brl(porData[k])+'</b></div>').join('');
   const w = window.open('', '_blank');
   if(!w){ toast('⚠️ Permita pop-ups para gerar o relatório'); return; }
-  w.document.write('<html lang="pt-BR"><head><meta charset="UTF-8"><title>Adiantamentos sugeridos</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111;font-size:13px}h1{font-size:18px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}th{background:#eee}.n{text-align:right;white-space:nowrap}small{color:#555}.tot{margin-top:14px;font-size:15px}@media print{button{display:none}}</style></head><body><button onclick="window.print()" style="margin-bottom:12px">Imprimir / salvar PDF</button><h1>Adiantamentos sugeridos</h1><div>Semana de '+fmtDataBR(currentWeekStart)+' a '+fmtDataBR(weekEnd)+'</div><table><thead><tr><th>Colaborador</th><th>Unidade</th><th>Chave Pix</th><th>Subtotal da semana</th><th>Adiantar</th><th>Pagar até</th><th>Saldo restante</th></tr></thead><tbody>'+linhas+'</tbody><tfoot><tr><th colspan="3">TOTAL</th><th class="n">'+brl(totSub)+'</th><th class="n">'+brl(tot)+'</th><th></th><th class="n">'+brl(totSub-tot)+'</th></tr></tfoot></table><div class="tot"><b>Total a adiantar: '+brl(tot)+'</b></div><div style="margin-top:8px">'+datas+'</div></body></html>');
+  w.document.write('<html lang="pt-BR"><head><meta charset="UTF-8"><title>Adiantamentos sugeridos</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111;font-size:13px}h1{font-size:18px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}th{background:#eee}.n{text-align:right;white-space:nowrap}small{color:#555}.tot{margin-top:14px;font-size:15px}@media print{button{display:none}}</style></head><body><button onclick="window.print()" style="margin-bottom:12px">Imprimir / salvar PDF</button><h1>Adiantamentos sugeridos</h1><div>Semana de '+fmtDataBR(currentWeekStart)+' a '+fmtDataBR(weekEnd)+'</div><table><thead><tr><th>Colaborador</th><th>Unidade</th><th>Chave Pix</th><th>Subtotal da semana</th><th>Adiantar</th><th>Pagar até</th><th>Saldo restante</th><th>Status</th></tr></thead><tbody>'+linhas+'</tbody><tfoot><tr><th colspan="3">TOTAL</th><th class="n">'+brl(totSub)+'</th><th class="n">'+brl(tot)+'</th><th></th><th class="n">'+brl(totSub-tot)+'</th><th></th></tr></tfoot></table><div class="tot"><b>Total a adiantar: '+brl(tot)+'</b> · transferido '+brl(pagoT)+' · pendente '+brl(tot-pagoT)+'</div><div style="margin-top:8px">'+datas+'</div></body></html>');
   w.document.close();
 }
 function copiarPix(p){
@@ -1224,28 +1228,56 @@ function copiarPix(p){
 function blocoPixPlano(fid, f, subtotal){
   const semana = isoDate(currentWeekStart);
   const plano = (planoData[semana]||{})[fid] || {};
+  const pago = !!(plano.pago && plano.turnoId && turnosData[plano.turnoId]);
   const pix = f.pix || '';
   const pixHtml = pix
     ? '<div class="dr" style="margin-top:6px"><div class="dk" style="font-weight:600">Chave Pix</div><div class="dv" style="cursor:pointer;font-size:13px" onclick="copiarPix(\''+pix.replace(/'/g,'')+'\')">'+pix+' <i class="ti ti-copy"></i> <i class="ti ti-pencil" style="margin-left:8px" onclick="event.stopPropagation();adicionarPix(\''+fid+'\')"></i></div></div>'
     : '<div class="dr" style="margin-top:6px"><div class="dk" style="font-weight:600">Chave Pix</div><div class="dv" style="font-size:13px"><button class="btn-sm" onclick="adicionarPix(\''+fid+'\')">➕ Adicionar chave Pix</button></div></div>';
   const valor = plano.valor || '';
   const data = plano.data || '';
-  const saldo = plano.valor ? (subtotal - plano.valor) : null;
+  const saldo = plano.valor ? (pago ? subtotal : (subtotal - plano.valor)) : null;
   const resumo = plano.valor
-    ? '<div style="font-size:12px;margin-top:6px;color:#1F3864">Sugestão: pagar '+brl(plano.valor)+(plano.data?(' até '+isoParaBR(plano.data)):'')+' · saldo restante '+brl(saldo)+'</div>'
+    ? (pago ? '<div style="font-size:12px;margin-top:6px;color:#1d9e75;font-weight:600">✔ Transferido '+brl(plano.valor)+(plano.pagoEm?(' em '+new Date(plano.pagoEm).toLocaleDateString('pt-BR')):'')+' · lançado na folha · saldo a pagar '+brl(saldo)+'</div>' : '<div style="font-size:12px;margin-top:6px;color:#1F3864">Sugestão: pagar '+brl(plano.valor)+(plano.data?(' até '+isoParaBR(plano.data)):'')+' · saldo restante '+brl(saldo)+'</div>')
     : '';
   return pixHtml +
     '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)">'+
       '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Plano de pagamento (adiantamento sugerido)</div>'+
       '<div style="display:flex;gap:6px;align-items:center">'+
-        '<input id="plano-v-'+fid+'" type="number" step="0.01" placeholder="R$ valor" value="'+valor+'" style="flex:1;min-width:0">'+
-        '<input id="plano-d-'+fid+'" type="date" value="'+data+'" style="flex:1;min-width:0">'+
+        '<input id="plano-v-'+fid+'" type="number" step="0.01" placeholder="R$ valor" value="'+valor+'" style="flex:1;min-width:0"'+(pago?' disabled':'')+'>'+
+        '<input id="plano-d-'+fid+'" type="date" value="'+data+'" style="flex:1;min-width:0"'+(pago?' disabled':'')+'>'+
         '<button class="btn-sm" onclick="salvarPlano(\''+fid+'\')">Salvar</button>'+
+        '<button class="btn-sm" title="'+(pago?'Transferência confirmada (toque para desfazer)':'Confirmar que o financeiro transferiu')+'" style="font-weight:700;'+(pago?'background:#1d9e75;color:#fff;border-color:#1d9e75':'')+'" onclick="confirmarPagamentoPlano(\''+fid+'\')">✓</button>'+
       '</div>'+resumo+
     '</div>';
 }
+function confirmarPagamentoPlano(fid){
+  const f = freelancersData[fid]; if(!f) return;
+  const semana = isoDate(currentWeekStart);
+  const plano = (planoData[semana]||{})[fid];
+  const ref = PLANO_REF.child(semana).child(fid);
+  if(plano && plano.pago && plano.turnoId){
+    if(!confirm('Desfazer a confirmação? O adiantamento de '+brl(plano.valor)+' será removido da folha de '+f.nome+'.')) return;
+    TN_REF.child(plano.turnoId).remove();
+    ref.update({pago:null, turnoId:null, pagoEm:null});
+    toast('↩️ Adiantamento removido da folha');
+    return;
+  }
+  if(!plano || !(plano.valor>0)){ toast('⚠️ Salve o valor do plano primeiro'); return; }
+  const iv = parseFloat(document.getElementById('plano-v-'+fid).value);
+  if(iv !== plano.valor){ toast('⚠️ Valor alterado — clique em Salvar antes de confirmar'); return; }
+  if(!confirm('Confirmar que o financeiro transferiu '+brl(plano.valor)+' para '+f.nome+'?\nIsso lança o adiantamento na folha da semana.')) return;
+  const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  const ini = isoDate(currentWeekStart), fim = isoDate(weekEnd);
+  const dataLanc = (plano.data && plano.data>=ini && plano.data<=fim) ? plano.data : fim;
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:'Adiantamento via Pix (plano de pagamento) · transferido em '+hoje, criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-plano.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano'});
+  ref.update({pago:true, turnoId:novo.key, pagoEm:Date.now()});
+  toast('✅ Adiantamento lançado na folha');
+}
 function salvarPlano(fid){
   const semana = isoDate(currentWeekStart);
+  const _p = (planoData[semana]||{})[fid];
+  if(_p && _p.pago && _p.turnoId && turnosData[_p.turnoId]){ toast('Desfaça o ✓ antes de alterar o plano'); return; }
   const v = parseFloat(document.getElementById('plano-v-'+fid).value);
   const d = document.getElementById('plano-d-'+fid).value;
   const ref = PLANO_REF.child(semana).child(fid);

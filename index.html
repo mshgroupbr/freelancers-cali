@@ -413,6 +413,10 @@ if('serviceWorker' in navigator){
       <label class="fl">Valor / hora padrão (R$)</label>
       <input id="fl-valor" type="number" step="0.01" placeholder="Opcional">
     </div>
+    <div class="field" id="fl-pix-row">
+      <label class="fl">Chave Pix</label>
+      <input id="fl-pix" type="text" placeholder="CPF, telefone, e-mail ou chave aleatória" autocomplete="off">
+    </div>
     <div class="field" id="fl-setor-row">
       <label class="fl">Setor</label>
       <select id="fl-setor">
@@ -457,6 +461,8 @@ const db = firebase.database();
 const FL_REF = db.ref('freelancers');
 const TN_REF = db.ref('turnos');
 const LIDERES_REF = db.ref('lideresAutorizados');
+const PLANO_REF = db.ref('planoPagamento');
+let planoData = {};
 const VENDAS_REF = db.ref('gestao_vendas');
 
 const SENHAS = ['127127','128128','129129','130130','000813','416100'];
@@ -590,6 +596,10 @@ function initData(){
     renderHome();
     renderHistorico();
   });
+  PLANO_REF.on('value', snap=>{
+    planoData = snap.val()||{};
+    renderFechamento();
+  });
   TN_REF.on('value', snap=>{
     turnosData = snap.val()||{};
     renderTurnosRecentes();
@@ -711,6 +721,8 @@ function novoFreelancer(){
   document.getElementById('fl-nome').value='';
   document.getElementById('fl-funcao').value='';
   document.getElementById('fl-valor').value='';
+  document.getElementById('fl-pix').value='';
+  document.getElementById('fl-pix-row').style.display = (currentRole==='lider') ? 'none' : '';
   document.getElementById('fl-ativo').checked=true;
   document.getElementById('fl-del-btn').style.display='none';
   if(currentRole==='lider' && liderInfo){
@@ -730,6 +742,8 @@ function editarFreelancer(id){
   document.getElementById('fl-nome').value=f.nome||'';
   document.getElementById('fl-funcao').value=f.funcao||'';
   document.getElementById('fl-valor').value=f.valorHoraPadrao||'';
+  document.getElementById('fl-pix').value=f.pix||'';
+  document.getElementById('fl-pix-row').style.display = (currentRole==='lider') ? 'none' : '';
   document.getElementById('fl-ativo').checked=f.ativo!==false;
   document.getElementById('fl-setor').value=f.setor||'';
   document.getElementById('fl-setor-row').style.display = (currentRole==='lider') ? 'none' : '';
@@ -746,6 +760,7 @@ function salvarFreelancer(){
   let setor = (document.getElementById('fl-setor').value||'')||null;
   if(currentRole==='lider' && liderInfo){ setor = liderInfo.setor; }
   const data = {nome, funcao, valorHoraPadrao, ativo, unidade, setor};
+  if(currentRole!=='lider'){ data.pix = (document.getElementById('fl-pix').value||'').trim(); }
   if(editingFreelancerId){
     FL_REF.child(editingFreelancerId).update(data);
     toast('✅ Freelancer atualizado');
@@ -1150,11 +1165,50 @@ function renderFechamento(){
         <div class="dk" style="font-weight:600">Subtotal</div>
         <div class="dv" style="color:#1d9e75">${brl(subtotal)}</div>
       </div>
+      ${blocoPixPlano(fid, f, subtotal)}
       <button class="btn-sm" style="margin-top:8px;width:100%" onclick="gerarReciboFreelancer('${fid}')"><i class="ti ti-receipt"></i> Gerar recibo</button>
     </div>`;
   });
   cont.innerHTML = html;
   document.getElementById('fech-total').textContent = brl(totalGeral);
+}
+
+// ---- PIX + PLANO DE PAGAMENTO ----
+function copiarPix(p){
+  if(navigator.clipboard){ navigator.clipboard.writeText(p).then(()=>toast('📋 Chave Pix copiada')); }
+  else { toast(p); }
+}
+function blocoPixPlano(fid, f, subtotal){
+  const semana = isoDate(currentWeekStart);
+  const plano = (planoData[semana]||{})[fid] || {};
+  const pix = f.pix || '';
+  const pixHtml = pix
+    ? '<div class="dr" style="margin-top:6px"><div class="dk" style="font-weight:600">Chave Pix</div><div class="dv" style="cursor:pointer;font-size:13px" onclick="copiarPix(\''+pix.replace(/'/g,'')+'\')">'+pix+' <i class="ti ti-copy"></i></div></div>'
+    : '<div class="dr" style="margin-top:6px"><div class="dk" style="font-weight:600">Chave Pix</div><div class="dv" style="font-size:13px;color:#c0392b">não cadastrada</div></div>';
+  const valor = plano.valor || '';
+  const data = plano.data || '';
+  const saldo = plano.valor ? (subtotal - plano.valor) : null;
+  const resumo = plano.valor
+    ? '<div style="font-size:12px;margin-top:6px;color:#1F3864">Sugestão: pagar '+brl(plano.valor)+(plano.data?(' até '+isoParaBR(plano.data)):'')+' · saldo restante '+brl(saldo)+'</div>'
+    : '';
+  return pixHtml +
+    '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)">'+
+      '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Plano de pagamento (adiantamento sugerido)</div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<input id="plano-v-'+fid+'" type="number" step="0.01" placeholder="R$ valor" value="'+valor+'" style="flex:1;min-width:0">'+
+        '<input id="plano-d-'+fid+'" type="date" value="'+data+'" style="flex:1;min-width:0">'+
+        '<button class="btn-sm" onclick="salvarPlano(\''+fid+'\')">Salvar</button>'+
+      '</div>'+resumo+
+    '</div>';
+}
+function salvarPlano(fid){
+  const semana = isoDate(currentWeekStart);
+  const v = parseFloat(document.getElementById('plano-v-'+fid).value);
+  const d = document.getElementById('plano-d-'+fid).value;
+  const ref = PLANO_REF.child(semana).child(fid);
+  if(!v || v<=0){ ref.remove(); toast('Plano removido'); return; }
+  ref.set({valor:v, data:d||''});
+  toast('✅ Plano salvo');
 }
 
 // ---- RECIBOS ----

@@ -688,10 +688,10 @@ function renderTurnosRecentes(){
   el.innerHTML = arr.map(t=>{
     const f = freelancersData[t.freelancerId]||{nome:'(removido)'};
     const total = totalDiaTurno(t,f);
-    const detalhe = t.tipo==='adiantamento' ? '⚠️ Adiantamento' : (t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||'')));
+    const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||'')));
     return `<div class="ri" onclick="abrirEdicaoRapida('${t.id}','s-home')">
       <div class="rico s"><i class="ti ti-user"></i></div>
-      <div class="rm"><div class="rt">${f.nome}</div><div class="rs">${isoParaBR(t.data)} · ${detalhe}</div></div>
+      <div class="rm"><div class="rt">${f.nome}</div><div class="rs">${dataExibTurno(t)} · ${detalhe}</div></div>
       <div class="badge ${total<0?'bw':'bs'}">${brl(total)}</div>
     </div>`;
   }).join('');
@@ -1161,9 +1161,9 @@ function renderFechamento(){
       const total = totalDiaTurno(t, f);
       subtotal+=total;
       const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
-      const detalhe = t.tipo==='adiantamento' ? '⚠️ Adiantamento' : (t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt));
+      const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt));
       return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-fechamento')">
-        <div class="dk">${isoParaBR(t.data)} · ${detalhe}</div>
+        <div class="dk">${dataExibTurno(t)} · ${detalhe}</div>
         <div class="dv"${total<0?' style="color:#c0392b"':''}>${brl(total)}</div>
       </div>`;
     }).join('');
@@ -1214,12 +1214,21 @@ function relatorioAdiantamentos(){
   const totSub = com.reduce((s,r)=>s+r.subtotal,0);
   const pagoT = com.filter(r=>r.pago).reduce((s,r)=>s+r.plano.valor,0);
   const porData = {}; com.forEach(r=>{ const k=r.plano.data||''; porData[k]=(porData[k]||0)+r.plano.valor; });
-  const linhas = com.map(r=>'<tr><td>'+r.nome+(r.funcao?'<br><small>'+r.funcao+'</small>':'')+'</td><td>'+r.unidade+'</td><td>'+(r.pix||'<span style="color:#c0392b">sem chave</span>')+'</td><td class="n">'+brl(r.subtotal)+'</td><td class="n"><b>'+brl(r.plano.valor)+'</b></td><td>'+(r.plano.data?isoParaBR(r.plano.data):'-')+'</td><td class="n">'+brl(r.subtotal-r.plano.valor)+'</td><td>'+(r.pago?'✔ Pago':'Pendente')+'</td></tr>').join('');
+  const linhas = com.map(r=>'<tr><td>'+r.nome+(r.funcao?'<br><small>'+r.funcao+'</small>':'')+'</td><td>'+r.unidade+'</td><td>'+(r.pix||'<span style="color:#c0392b">sem chave</span>')+'</td><td class="n">'+brl(r.subtotal)+'</td><td class="n"><b>'+brl(r.plano.valor)+'</b></td><td>'+(r.plano.data?isoParaBR(r.plano.data):'-')+'</td><td class="n">'+brl(r.subtotal-r.plano.valor)+'</td><td>'+(r.pago?('✔ Pago em '+fmtDataHoraBR(r.plano.pagoEm||Date.now())):'Pendente')+'</td></tr>').join('');
   const datas = Object.keys(porData).sort().map(k=>'<div>'+(k?isoParaBR(k):'Sem data')+': <b>'+brl(porData[k])+'</b></div>').join('');
   const w = window.open('', '_blank');
   if(!w){ toast('⚠️ Permita pop-ups para gerar o relatório'); return; }
   w.document.write('<html lang="pt-BR"><head><meta charset="UTF-8"><title>Adiantamentos sugeridos</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111;font-size:13px}h1{font-size:18px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}th{background:#eee}.n{text-align:right;white-space:nowrap}small{color:#555}.tot{margin-top:14px;font-size:15px}@media print{button{display:none}}</style></head><body><button onclick="window.print()" style="margin-bottom:12px">Imprimir / salvar PDF</button><h1>Adiantamentos sugeridos</h1><div>Semana de '+fmtDataBR(currentWeekStart)+' a '+fmtDataBR(weekEnd)+'</div><table><thead><tr><th>Colaborador</th><th>Unidade</th><th>Chave Pix</th><th>Subtotal da semana</th><th>Adiantar</th><th>Pagar até</th><th>Saldo restante</th><th>Status</th></tr></thead><tbody>'+linhas+'</tbody><tfoot><tr><th colspan="3">TOTAL</th><th class="n">'+brl(totSub)+'</th><th class="n">'+brl(tot)+'</th><th></th><th class="n">'+brl(totSub-tot)+'</th><th></th></tr></tfoot></table><div class="tot"><b>Total a adiantar: '+brl(tot)+'</b> · transferido '+brl(pagoT)+' · pendente '+brl(tot-pagoT)+'</div><div style="margin-top:8px">'+datas+'</div></body></html>');
   w.document.close();
+}
+function fmtDataHoraBR(ms){
+  return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function advTxt(t){
+  return '⚠️ Adiantamento'+((t.origem==='plano'&&t.criadoEm)?(' · Pix transferido em '+fmtDataHoraBR(t.criadoEm)):'');
+}
+function dataExibTurno(t){
+  return (t.origem==='plano'&&t.criadoEm) ? new Date(t.criadoEm).toLocaleDateString('pt-BR') : isoParaBR(t.data);
 }
 function copiarPix(p){
   if(navigator.clipboard){ navigator.clipboard.writeText(p).then(()=>toast('📋 Chave Pix copiada')); }
@@ -1237,7 +1246,7 @@ function blocoPixPlano(fid, f, subtotal){
   const data = plano.data || '';
   const saldo = plano.valor ? (pago ? subtotal : (subtotal - plano.valor)) : null;
   const resumo = plano.valor
-    ? (pago ? '<div style="font-size:12px;margin-top:6px;color:#1d9e75;font-weight:600">✔ Transferido '+brl(plano.valor)+(plano.pagoEm?(' em '+new Date(plano.pagoEm).toLocaleDateString('pt-BR')):'')+' · lançado na folha · saldo a pagar '+brl(saldo)+'</div>' : '<div style="font-size:12px;margin-top:6px;color:#1F3864">Sugestão: pagar '+brl(plano.valor)+(plano.data?(' até '+isoParaBR(plano.data)):'')+' · saldo restante '+brl(saldo)+'</div>')
+    ? (pago ? '<div style="font-size:12px;margin-top:6px;color:#1d9e75;font-weight:600">✔ Transferido '+brl(plano.valor)+(plano.pagoEm?(' em '+fmtDataHoraBR(plano.pagoEm)):'')+' · lançado na folha · saldo a pagar '+brl(saldo)+'</div>' : '<div style="font-size:12px;margin-top:6px;color:#1F3864">Sugestão: pagar '+brl(plano.valor)+(plano.data?(' até '+isoParaBR(plano.data)):'')+' · saldo restante '+brl(saldo)+'</div>')
     : '';
   return pixHtml +
     '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)">'+
@@ -1270,7 +1279,7 @@ function confirmarPagamentoPlano(fid){
   const ini = isoDate(currentWeekStart), fim = isoDate(weekEnd);
   const dataLanc = (plano.data && plano.data>=ini && plano.data<=fim) ? plano.data : fim;
   const hoje = new Date().toLocaleDateString('pt-BR');
-  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:'Adiantamento via Pix (plano de pagamento) · transferido em '+hoje, criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-plano.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano'});
+  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:'Adiantamento via Pix (plano de pagamento) · transferido em '+fmtDataHoraBR(Date.now()), criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-plano.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano'});
   ref.update({pago:true, turnoId:novo.key, pagoEm:Date.now()});
   toast('✅ Adiantamento lançado na folha');
 }
@@ -1370,8 +1379,8 @@ function renderHistorico(){
   el.innerHTML = arr.map(t=>{
     const tot = totalDiaTurno(t,f); total+=tot;
     const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
-    const detalhe = t.tipo==='adiantamento' ? '⚠️ Adiantamento' : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
-    return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${isoParaBR(t.data)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
+    const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
+    return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${dataExibTurno(t)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
   }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
   totalEl.textContent = arr.length ? ('Total acumulado: '+brl(total)) : '';
 }

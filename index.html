@@ -169,6 +169,11 @@ body.desk #s-acessos .pad,body.desk #s-historico .pad{max-width:900px}
 body.desk .modal-box{max-width:520px}
 body.desk #toast{left:calc(50% + 124px)}
 body.desk.no-side #toast{left:50%}
+.rel-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.rel-presets button{background:var(--surf2);border:.5px solid var(--bdr2);border-radius:20px;padding:7px 12px;font-size:12px;font-weight:500;color:var(--hd);cursor:pointer;font-family:inherit}
+.rel-presets button:active{background:#e6ecf5}
+.rel-pct{font-size:11px;color:var(--tx3);font-weight:400;margin-left:6px}
+body.desk #s-relatorio .pad{max-width:980px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -245,10 +250,51 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
+    <button class="btn-excel-home gerente-only" onclick="goTo('s-relatorio');renderRelatorio()"><i class="ti ti-file-analytics"></i> Relatório de gastos</button>
     <div>
       <div class="sec-l">Lançamentos recentes</div>
       <div id="tn-recentes" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
+  </div>
+</div>
+
+<!-- RELATORIO DE GASTOS -->
+<div class="screen" id="s-relatorio">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Relatório de gastos</h1><p>Quanto a equipe custa no período</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <label class="fl">Período</label>
+      <div class="rel-presets">
+        <button onclick="relPreset('semana')">Esta semana</button>
+        <button onclick="relPreset('semana_ant')">Semana passada</button>
+        <button onclick="relPreset('mes')">Este mês</button>
+        <button onclick="relPreset('mes_ant')">Mês passado</button>
+        <button onclick="relPreset('30')">Últimos 30 dias</button>
+      </div>
+      <label class="fl">De</label>
+      <input id="rel-de" type="date" onchange="renderRelatorio()" style="margin-bottom:12px">
+      <label class="fl">Até</label>
+      <input id="rel-ate" type="date" onchange="renderRelatorio()" style="margin-bottom:12px">
+      <label class="fl">Unidade</label>
+      <select id="rel-un" onchange="renderRelatorio()" style="margin-bottom:12px">
+        <option value="">Cali + Texas (geral)</option>
+        <option value="Cali Cravings">Cali Cravings</option>
+        <option value="Texas Country Bar">Texas Country Bar</option>
+      </select>
+      <label class="fl">Setor</label>
+      <select id="rel-setor" onchange="renderRelatorio()">
+        <option value="">Todos os setores</option>
+        <option value="Bar">Bar</option>
+        <option value="Cozinha">Cozinha</option>
+        <option value="Salão">Salão</option>
+        <option value="Outros">Outros</option>
+      </select>
+    </div>
+    <div id="rel-resumo"></div>
+    <button class="btn-pdf" onclick="gerarRelatorioPdf()"><i class="ti ti-file-type-pdf"></i> Gerar PDF do relatório</button>
   </div>
 </div>
 
@@ -495,6 +541,7 @@ if('serviceWorker' in navigator){
   <button class="side-it" data-s="s-historico" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico</button>
   <button class="side-it gerente-only" data-s="s-acessos" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
   <button class="side-it gerente-only" data-s="s-setor" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
+  <button class="side-it gerente-only" data-s="s-relatorio" onclick="goTo('s-relatorio');renderRelatorio()"><i class="ti ti-file-analytics"></i> Relatório de gastos</button>
   <div class="side-foot">
     <div class="side-unit" id="side-unit"></div>
     <button class="side-it" onclick="trocarUnidade()"><i class="ti ti-arrows-exchange"></i> Trocar unidade</button>
@@ -1662,6 +1709,142 @@ function exportarPdfSemana(){
   });
   doc.save('Freelancers_'+isoDate(currentWeekStart)+'_a_'+isoDate(weekEnd)+'.pdf');
   toast('✅ PDF exportado');
+}
+
+// ---- RELATÓRIO DE GASTOS (período) ----
+function relEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function relPreset(p){
+  const hoje = new Date();
+  let de, ate;
+  if(p==='semana'){ de = getMonday(hoje); ate = new Date(de); ate.setDate(de.getDate()+6); }
+  else if(p==='semana_ant'){ de = getMonday(hoje); de.setDate(de.getDate()-7); ate = new Date(de); ate.setDate(de.getDate()+6); }
+  else if(p==='mes_ant'){ de = new Date(hoje.getFullYear(), hoje.getMonth()-1, 1); ate = new Date(hoje.getFullYear(), hoje.getMonth(), 0); }
+  else if(p==='30'){ ate = hoje; de = new Date(hoje); de.setDate(de.getDate()-29); }
+  else { de = new Date(hoje.getFullYear(), hoje.getMonth(), 1); ate = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0); }
+  document.getElementById('rel-de').value = isoDate(de);
+  document.getElementById('rel-ate').value = isoDate(ate);
+  renderRelatorio();
+}
+function relDados(){
+  const de = document.getElementById('rel-de').value, ate = document.getElementById('rel-ate').value;
+  const un = document.getElementById('rel-un').value, st = document.getElementById('rel-setor').value;
+  const R = {de:de, ate:ate, un:un, st:st, total:0, horas:0, dias:0, adiant:0, porUn:{}, porSetor:{}, porSem:{}, porCol:{}};
+  Object.keys(turnosData).forEach(function(id){
+    const tn = turnosData[id];
+    if(!tn || !tn.data) return;
+    if(de && tn.data < de) return;
+    if(ate && tn.data > ate) return;
+    const f = freelancersData[tn.freelancerId];
+    const unidade = tn.unidade || (f && f.unidade) || 'Cali Cravings';
+    if(un && unidade !== un) return;
+    const setor = inferirSetor(f);
+    if(st && setor !== st) return;
+    const valor = totalDiaTurno(tn, f);
+    if(tn.tipo === 'adiantamento'){ R.adiant += Math.abs(valor); return; }
+    const horas = tn.valorFixoDia ? 0 : horasComIntervalo(tn);
+    R.total += valor; R.dias += 1; R.horas += horas;
+    const acc = function(map, key){ const o = map[key] || (map[key] = {total:0, dias:0, horas:0}); o.total += valor; o.dias += 1; o.horas += horas; return o; };
+    acc(R.porUn, unidade);
+    acc(R.porSetor, setor);
+    const mon = isoDate(getMonday(new Date(tn.data+'T00:00:00')));
+    acc(R.porSem, mon);
+    const c = acc(R.porCol, tn.freelancerId+'|'+unidade);
+    c.nome = f ? f.nome : '(removido)'; c.unidade = unidade; c.funcao = f ? (f.funcao||'') : ''; c.setor = setor;
+  });
+  R.colabs = Object.keys(R.porCol).length;
+  return R;
+}
+function relSemanaLabel(iso){
+  const d = new Date(iso+'T00:00:00'); const e = new Date(d); e.setDate(d.getDate()+6);
+  return fmtDataBR(d)+' a '+fmtDataBR(e);
+}
+function renderRelatorio(){
+  if(currentRole==='lider'){ goTo('s-home'); return; }
+  const deEl = document.getElementById('rel-de'), ateEl = document.getElementById('rel-ate');
+  if(!deEl || !ateEl) return;
+  if(!deEl.value || !ateEl.value){ relPreset('mes'); return; }
+  const R = relDados();
+  const box = document.getElementById('rel-resumo');
+  if(!R.dias){
+    box.innerHTML = '<div class="card"><div class="empty"><i class="ti ti-calendar-off"></i>Nenhum lançamento no período escolhido</div></div>' +
+      (R.adiant ? '<div class="rs" style="margin:6px 4px">Adiantamentos no período: '+brl(R.adiant)+'</div>' : '');
+    return;
+  }
+  const pct = function(v){ return R.total ? ' <span class="rel-pct">'+(v/R.total*100).toFixed(1).replace('.',',')+'%</span>' : ''; };
+  const linhas = function(titulo, map, labelFn, ordem){
+    const keys = Object.keys(map).sort(ordem || function(a,b){ return map[b].total - map[a].total; });
+    return '<div class="card"><div class="clb">'+titulo+'</div>' + keys.map(function(k){
+      const o = map[k];
+      return '<div class="dr"><div class="dk">'+relEsc(labelFn(k,o))+'<span class="rel-pct">'+o.dias+' dia(s)</span></div><div class="dv">'+brl(o.total)+pct(o.total)+'</div></div>';
+    }).join('') + '</div>';
+  };
+  box.innerHTML =
+    '<div class="stats">' +
+      '<div class="stat"><div class="stat-l">Gasto total com a equipe</div><div class="stat-n g">'+brl(R.total)+'</div></div>' +
+      '<div class="stat"><div class="stat-l">Colaboradores</div><div class="stat-n o">'+R.colabs+'</div></div>' +
+      '<div class="stat"><div class="stat-l">Média por colaborador</div><div class="stat-n" style="font-size:20px">'+brl(R.total/R.colabs)+'</div></div>' +
+      '<div class="stat"><div class="stat-l">Dias lançados · horas</div><div class="stat-n" style="font-size:20px">'+R.dias+' · '+R.horas.toFixed(1).replace('.',',')+'h</div></div>' +
+    '</div>' +
+    (R.adiant ? '<div class="rs" style="margin:2px 4px 6px">Adiantamentos pagos no período: '+brl(R.adiant)+' (já contados nas diárias, não somar ao gasto)</div>' : '') +
+    linhas('Por unidade', R.porUn, function(k){ return k; }) +
+    linhas('Por setor', R.porSetor, function(k){ return k; }) +
+    linhas('Por semana', R.porSem, function(k){ return relSemanaLabel(k); }, function(a,b){ return a.localeCompare(b); }) +
+    linhas('Por colaborador', R.porCol, function(k,o){ return o.nome + (o.funcao ? ' · '+o.funcao : '') + (R.un ? '' : ' · '+(o.unidade==='Texas Country Bar'?'Texas':'Cali')); });
+}
+function gerarRelatorioPdf(){
+  const R = relDados();
+  if(!R.dias){ toast('⚠️ Nenhum lançamento no período'); return; }
+  const jsPDF = window.jspdf.jsPDF;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pct = function(v){ return R.total ? (v/R.total*100).toFixed(1).replace('.',',')+'%' : '-'; };
+  let y = 42;
+  doc.setFont(undefined,'bold'); doc.setFontSize(15); doc.setTextColor(31,56,100);
+  doc.text('MASHA GROUP — GASTO COM EQUIPE (FREELANCERS)', 30, y); y += 18;
+  doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(60,60,60);
+  doc.text('Período: '+isoParaBR(R.de)+' a '+isoParaBR(R.ate)+'   ·   Unidade: '+(R.un||'Cali + Texas (geral)')+'   ·   Setor: '+(R.st||'todos'), 30, y); y += 20;
+  const secao = function(titulo){
+    if(y > 740){ doc.addPage(); y = 42; }
+    doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+    doc.text(titulo, 30, y); y += 4;
+  };
+  const tabela = function(head, body, foot, extra){
+    doc.autoTable(Object.assign({
+      startY: y+4, head:[head], body: body, foot: foot ? [foot] : undefined, showFoot:'lastPage',
+      styles:{fontSize:9, font:'helvetica'}, headStyles:{fillColor:[31,56,100], textColor:255, fontStyle:'bold'},
+      footStyles:{fillColor:[252,228,214], textColor:[122,59,10], fontStyle:'bold'}, margin:{left:30, right:30}
+    }, extra || {}));
+    y = doc.lastAutoTable.finalY + 20;
+  };
+  secao('Resumo');
+  tabela(['Indicador','Valor'], [
+    ['Gasto total com a equipe', brl(R.total)],
+    ['Colaboradores no período', String(R.colabs)],
+    ['Média por colaborador', brl(R.total/R.colabs)],
+    ['Dias lançados', String(R.dias)],
+    ['Horas trabalhadas (lançamentos por hora)', R.horas.toFixed(1).replace('.',',')+' h'],
+    ['Média por dia lançado', brl(R.total/R.dias)]
+  ], null, {columnStyles:{1:{halign:'right'}}});
+  secao('Por unidade');
+  tabela(['Unidade','Dias','Total','% do gasto'], Object.keys(R.porUn).sort(function(a,b){ return R.porUn[b].total-R.porUn[a].total; }).map(function(k){ const o=R.porUn[k]; return [k, String(o.dias), brl(o.total), pct(o.total)]; }), ['TOTAL','',brl(R.total),'100%'], {columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'}}});
+  secao('Por setor');
+  tabela(['Setor','Dias','Total','% do gasto'], Object.keys(R.porSetor).sort(function(a,b){ return R.porSetor[b].total-R.porSetor[a].total; }).map(function(k){ const o=R.porSetor[k]; return [k, String(o.dias), brl(o.total), pct(o.total)]; }), ['TOTAL','',brl(R.total),'100%'], {columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'}}});
+  secao('Por semana');
+  tabela(['Semana','Dias','Total'], Object.keys(R.porSem).sort().map(function(k){ const o=R.porSem[k]; return [relSemanaLabel(k), String(o.dias), brl(o.total)]; }), ['TOTAL','',brl(R.total)], {columnStyles:{1:{halign:'right'},2:{halign:'right'}}});
+  secao('Por colaborador');
+  tabela(['Colaborador','Unidade','Função','Dias','Horas','Total'], Object.keys(R.porCol).sort(function(a,b){ return R.porCol[b].total-R.porCol[a].total; }).map(function(k){ const o=R.porCol[k]; return [o.nome, o.unidade==='Texas Country Bar'?'Texas':'Cali', o.funcao, String(o.dias), o.horas?o.horas.toFixed(1).replace('.',','):'-', brl(o.total)]; }), ['TOTAL','','',String(R.dias),R.horas.toFixed(1).replace('.',','),brl(R.total)], {columnStyles:{3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}}});
+  if(R.adiant){
+    doc.setFont(undefined,'normal'); doc.setFontSize(9); doc.setTextColor(90,90,90);
+    if(y > 790){ doc.addPage(); y = 42; }
+    doc.text('Adiantamentos pagos no período: '+brl(R.adiant)+' (já contados nas diárias acima; não somar ao gasto).', 30, y);
+  }
+  const n = doc.internal.getNumberOfPages();
+  for(let i=1;i<=n;i++){
+    doc.setPage(i); doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(130,130,130);
+    doc.text('Gerado em '+new Date().toLocaleString('pt-BR'), 30, 825);
+    doc.text('Página '+i+' de '+n, 565, 825, {align:'right'});
+  }
+  doc.save('Gasto_equipe_'+R.de+'_a_'+R.ate+'.pdf');
+  toast('✅ PDF gerado');
 }
 
 // ---- LÍDERES DE SETOR ----

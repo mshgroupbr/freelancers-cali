@@ -174,6 +174,19 @@ body.desk.no-side #toast{left:50%}
 .rel-presets button:active{background:#e6ecf5}
 .rel-pct{font-size:11px;color:var(--tx3);font-weight:400;margin-left:6px}
 body.desk #s-relatorio .pad{max-width:980px}
+
+.ab-it{border-top:.5px solid var(--bdr2);padding:12px 0}
+.ab-it:first-of-type{border-top:0}
+.ab-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ab-nm{font-weight:600;color:var(--hd);font-size:14px}
+.ab-nm small{font-weight:400;color:var(--tx3);margin-left:4px}
+.ab-sd{font-weight:700;font-size:17px;color:#c0392b;white-space:nowrap}
+.ab-ln{display:flex;justify-content:space-between;font-size:12px;color:var(--tx3);margin-top:3px}
+.ab-pix{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--hd)}
+.ab-pix button{background:var(--surf2);border:.5px solid var(--bdr2);border-radius:8px;padding:3px 8px;cursor:pointer;font-size:12px;font-family:inherit}
+.ab-late{color:#c0392b;font-weight:600}
+.ab-old{display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--surf2);border:.5px solid var(--bdr2);border-radius:10px;padding:10px 12px;margin-top:8px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--hd)}
+body.desk #s-aberto .pad{max-width:980px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -247,6 +260,7 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
     <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
+    <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
@@ -295,6 +309,26 @@ if('serviceWorker' in navigator){
     </div>
     <div id="rel-resumo"></div>
     <button class="btn-pdf" onclick="gerarRelatorioPdf()"><i class="ti ti-file-type-pdf"></i> Gerar PDF do relatório</button>
+  </div>
+</div>
+
+<div class="screen" id="s-aberto">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Em aberto</h1><p>Saldos a pagar · semana de seg a dom, pagamento na quarta</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <label class="fl">Semana trabalhada</label>
+      <select id="ab-sem" onchange="renderEmAberto()" style="margin-bottom:12px"></select>
+      <label class="fl">Unidade</label>
+      <select id="ab-un" onchange="renderEmAberto()">
+        <option value="">Cali + Texas (geral)</option>
+        <option value="Cali Cravings">Cali Cravings</option>
+        <option value="Texas Country Bar">Texas Country Bar</option>
+      </select>
+    </div>
+    <div id="ab-resumo"></div>
   </div>
 </div>
 
@@ -538,6 +572,7 @@ if('serviceWorker' in navigator){
   <button class="side-it gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
   <button class="side-it" data-s="s-freelancers" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
   <button class="side-it gerente-only" data-s="s-fechamento" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
+  <button class="side-it gerente-only" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
   <button class="side-it" data-s="s-historico" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico</button>
   <button class="side-it gerente-only" data-s="s-acessos" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
   <button class="side-it gerente-only" data-s="s-setor" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
@@ -1847,6 +1882,91 @@ function gerarRelatorioPdf(){
   toast('✅ PDF gerado');
 }
 
+// ---- EM ABERTO ----
+function abAgrupar(un){
+  const M = {};
+  Object.keys(turnosData).forEach(function(id){
+    const tn = turnosData[id];
+    if(!tn || !tn.data) return;
+    const f = freelancersData[tn.freelancerId];
+    const unidade = tn.unidade || (f && f.unidade) || 'Cali Cravings';
+    if(un && unidade !== un) return;
+    const valor = totalDiaTurno(tn, f) || 0;
+    const mon = isoDate(getMonday(new Date(tn.data+'T00:00:00')));
+    const key = mon+'|'+tn.freelancerId+'|'+unidade;
+    const o = M[key] || (M[key] = {mon:mon, fid:tn.freelancerId, unidade:unidade, bruto:0, adiant:0, saldo:0, dias:0});
+    if(tn.tipo === 'adiantamento'){ o.adiant += Math.abs(valor); } else { o.bruto += valor; o.dias += 1; }
+    o.saldo += valor;
+  });
+  return Object.keys(M).map(function(k){ return M[k]; });
+}
+function abIr(wk){ const s = document.getElementById('ab-sem'); if(s){ s.value = wk; renderEmAberto(); window.scrollTo(0,0); } }
+function renderEmAberto(){
+  if(currentRole==='lider'){ goTo('s-home'); return; }
+  const sel = document.getElementById('ab-sem');
+  if(!sel) return;
+  if(!sel.options.length){
+    const base = getMonday(new Date());
+    for(let i=1;i<=12;i++){
+      const m = new Date(base); m.setDate(m.getDate()-7*i);
+      const op = document.createElement('option');
+      op.value = isoDate(m);
+      op.textContent = relSemanaLabel(op.value) + (i===1 ? ' · semana anterior' : '');
+      sel.appendChild(op);
+    }
+  }
+  const wk = sel.value;
+  const un = document.getElementById('ab-un').value;
+  const todos = abAgrupar(un);
+  const sem = todos.filter(function(o){ return o.mon === wk; });
+  const abertos = sem.filter(function(o){ return o.saldo > 0.005; }).sort(function(a,b){ return b.saldo - a.saldo; });
+  const quitados = sem.filter(function(o){ return o.saldo <= 0.005; });
+  const totAberto = abertos.reduce(function(s,o){ return s+o.saldo; }, 0);
+  const totBruto = sem.reduce(function(s,o){ return s+o.bruto; }, 0);
+  const totAdiant = sem.reduce(function(s,o){ return s+o.adiant; }, 0);
+  const venc = new Date(wk+'T00:00:00'); venc.setDate(venc.getDate()+9);
+  const atrasado = isoDate(new Date()) > isoDate(venc);
+  const nomeDe = function(o){ const f = freelancersData[o.fid]; return f ? f.nome : '(removido)'; };
+  const unTag = function(o){ return un ? '' : ' · '+(o.unidade==='Texas Country Bar'?'Texas':'Cali'); };
+  let h = '<div class="stats">' +
+    '<div class="stat"><div class="stat-l">Total em aberto</div><div class="stat-n o">'+brl(totAberto)+'</div></div>' +
+    '<div class="stat"><div class="stat-l">Freelancers a pagar</div><div class="stat-n">'+abertos.length+'</div></div>' +
+    '<div class="stat"><div class="stat-l">Total da semana</div><div class="stat-n" style="font-size:20px">'+brl(totBruto)+'</div></div>' +
+    '<div class="stat"><div class="stat-l">Já adiantado / quitado</div><div class="stat-n g" style="font-size:20px">'+brl(totAdiant)+' · '+quitados.length+'</div></div>' +
+    '</div>' +
+    '<div class="rs" style="margin:2px 4px 8px">Vencimento: <span class="'+(atrasado && abertos.length ? 'ab-late' : '')+'">quarta-feira, '+fmtDataBR(venc)+(atrasado && abertos.length ? ' (atrasado)' : '')+'</span></div>';
+  if(!sem.length){
+    h += '<div class="card"><div class="empty"><i class="ti ti-calendar-off"></i>Nenhum lançamento nesta semana</div></div>';
+  } else if(!abertos.length){
+    h += '<div class="card"><div class="empty"><i class="ti ti-circle-check"></i>Tudo pago nesta semana</div></div>';
+  } else {
+    h += '<div class="card"><div class="clb">A pagar ('+abertos.length+')</div>' + abertos.map(function(o){
+      const f = freelancersData[o.fid] || {};
+      const pix = f.pix || '';
+      return '<div class="ab-it">' +
+        '<div class="ab-top"><div class="ab-nm">'+relEsc(nomeDe(o))+'<small>'+relEsc((f.funcao||'')+unTag(o))+'</small></div><div class="ab-sd">'+brl(o.saldo)+'</div></div>' +
+        '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto)+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +
+        '<div class="ab-pix">'+(pix ? '<span>Pix: <b>'+relEsc(pix)+'</b></span><button data-pix="'+relEsc(pix)+'" onclick="copiarPix(this.dataset.pix)"><i class="ti ti-copy"></i> copiar</button>' : '<span style="color:#c0392b">sem chave Pix cadastrada</span>')+'</div>' +
+        '</div>';
+    }).join('') + '</div>';
+  }
+  if(quitados.length){
+    h += '<div class="card"><div class="clb">Quitados ('+quitados.length+')</div>' + quitados.sort(function(a,b){ return nomeDe(a).localeCompare(nomeDe(b)); }).map(function(o){
+      const extra = o.saldo < -0.005 ? ' <span style="color:#c0392b">· adiantou '+brl(-o.saldo)+' a mais</span>' : '';
+      return '<div class="dr"><div class="dk">'+relEsc(nomeDe(o))+relEsc(unTag(o))+extra+'</div><div class="dv" style="color:#1e8e5a">✓ pago</div></div>';
+    }).join('') + '</div>';
+  }
+  const ant = {};
+  todos.forEach(function(o){ if(o.mon < wk && o.saldo > 0.005){ const a = ant[o.mon] || (ant[o.mon] = {total:0, n:0}); a.total += o.saldo; a.n += 1; } });
+  const antKeys = Object.keys(ant).sort().reverse();
+  if(antKeys.length){
+    const tot = antKeys.reduce(function(s,k){ return s+ant[k].total; }, 0);
+    h += '<div class="card"><div class="clb">Semanas anteriores ainda em aberto · '+brl(tot)+'</div>' + antKeys.map(function(k){
+      return '<button class="ab-old" data-wk="'+k+'" onclick="abIr(this.dataset.wk)"><span>'+relSemanaLabel(k)+' · '+ant[k].n+' freelancer(s)</span><b>'+brl(ant[k].total)+'</b></button>';
+    }).join('') + '</div>';
+  }
+  document.getElementById('ab-resumo').innerHTML = h;
+}
 // ---- LÍDERES DE SETOR ----
 async function buscarLiderAutorizado(email){
   const emailLower = (email||'').toLowerCase().trim();

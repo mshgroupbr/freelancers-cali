@@ -264,6 +264,7 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
+    <button class="btn-excel-home gerente-only" onclick="goTo('s-ajuste');renderAjuste()"><i class="ti ti-gift"></i> Lançar ajuste (bônus / atrasado)</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
@@ -312,6 +313,33 @@ if('serviceWorker' in navigator){
     </div>
     <div id="rel-resumo"></div>
     <button class="btn-pdf" onclick="gerarRelatorioPdf()"><i class="ti ti-file-type-pdf"></i> Gerar PDF do relatório</button>
+  </div>
+</div>
+
+<div class="screen" id="s-ajuste">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Lançar ajuste</h1><p>Bônus ou valor atrasado · só gestão</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <label class="fl">Freelancer</label>
+      <select id="aj-fl" style="margin-bottom:12px"></select>
+      <label class="fl">Tipo</label>
+      <select id="aj-tipo" onchange="ajAtualizarTipo()" style="margin-bottom:12px">
+        <option value="bonus">🎁 Bônus</option>
+        <option value="atrasado">⏰ Valor atrasado (esquecido em semana passada)</option>
+      </select>
+      <label class="fl">Valor (R$)</label>
+      <input id="aj-valor" type="number" step="0.01" min="0" placeholder="0,00" style="margin-bottom:12px">
+      <label class="fl" id="aj-data-lbl">Data de referência</label>
+      <input id="aj-data" type="date" style="margin-bottom:4px">
+      <div id="aj-semana" class="rs" style="margin:0 2px 12px"></div>
+      <label class="fl">Motivo (opcional)</label>
+      <input id="aj-obs" type="text" placeholder="Ex.: diária de sábado não lançada" autocomplete="off" style="margin-bottom:14px">
+      <button class="btn-or" onclick="salvarAjuste()"><i class="ti ti-check"></i> Lançar ajuste</button>
+    </div>
+    <div id="aj-ultimos"></div>
   </div>
 </div>
 
@@ -578,6 +606,7 @@ if('serviceWorker' in navigator){
   <button class="side-it" data-s="s-freelancers" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
   <button class="side-it gerente-only" data-s="s-fechamento" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
   <button class="side-it gerente-only" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
+  <button class="side-it gerente-only" data-s="s-ajuste" onclick="goTo('s-ajuste');renderAjuste()"><i class="ti ti-gift"></i> Lançar ajuste</button>
   <button class="side-it" data-s="s-historico" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico</button>
   <button class="side-it gerente-only" data-s="s-acessos" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
   <button class="side-it gerente-only" data-s="s-setor" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
@@ -856,7 +885,7 @@ function renderTurnosRecentes(){
   el.innerHTML = arr.map(t=>{
     const f = freelancersData[t.freelancerId]||{nome:'(removido)'};
     const total = totalDiaTurno(t,f);
-    const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||'')));
+    const detalhe = t.tipo==='adiantamento' ? advTxt(t) : t.tipo==='ajuste' ? ajTxt(t) : (t.valorFixoDia ? 'Valor fixo' : ((t.entrada||'')+' – '+(t.saida||'')));
     return `<div class="ri" onclick="abrirEdicaoRapida('${t.id}','s-home')">
       <div class="rico s"><i class="ti ti-user"></i></div>
       <div class="rm"><div class="rt">${f.nome}</div><div class="rs">${dataExibTurno(t)} · ${detalhe}</div></div>
@@ -1139,6 +1168,7 @@ function excluirLancFech(id){
   }
   TN_REF.child(id).remove();
   toast('🗑️ Lançamento excluído');
+  if(typeof ajListarUltimos==='function') setTimeout(ajListarUltimos, 500);
 }
 function voltarDoTurno(){
   goTo(turnoBackTarget);
@@ -1146,6 +1176,7 @@ function voltarDoTurno(){
 function abrirEdicaoRapida(id, origem){
   const t = turnosData[id];
   if(!t) return;
+  if(t.tipo==='ajuste'){ toast('Ajustes não são editáveis — exclua (🗑️) e lance de novo'); return; }
   if(currentRole==='lider' && liderInfo){ const ff=freelancersData[t.freelancerId]; if(!ff || ff.setor!==liderInfo.setor){ toast('⚠️ Sem permissão para editar este lançamento'); return; } }
   editingTurnoId = id;
   turnoBackTarget = origem || 's-fechamento';
@@ -1350,7 +1381,7 @@ function renderFechamento(){
       const total = totalDiaTurno(t, f);
       subtotal+=total;
       const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
-      const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt));
+      const detalhe = t.tipo==='adiantamento' ? advTxt(t) : t.tipo==='ajuste' ? ajTxt(t) : (t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt));
       return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-fechamento')">
         <div class="dk">${dataExibTurno(t)} · ${detalhe}</div>
         <div class="dv"${total<0?' style="color:#c0392b"':''}>${brl(total)}<button title="Excluir lançamento" onclick="event.stopPropagation();excluirLancFech('${t.id}')" style="background:none;border:0;cursor:pointer;font-size:15px;margin-left:8px;padding:2px 4px">🗑️</button></div>
@@ -1609,7 +1640,7 @@ function renderHistorico(){
   el.innerHTML = arr.map(t=>{
     const tot = totalDiaTurno(t,f); total+=tot;
     const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
-    const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
+    const detalhe = t.tipo==='adiantamento' ? advTxt(t) : t.tipo==='ajuste' ? ajTxt(t) : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
     return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${dataExibTurno(t)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
   }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
   totalEl.textContent = arr.length ? ('Total acumulado: '+brl(total)) : '';
@@ -1803,8 +1834,9 @@ function relDados(){
     const valor = totalDiaTurno(tn, f);
     if(tn.tipo === 'adiantamento'){ R.adiant += Math.abs(valor); return; }
     const horas = tn.valorFixoDia ? 0 : horasComIntervalo(tn);
-    R.total += valor; R.dias += 1; R.horas += horas;
-    const acc = function(map, key){ const o = map[key] || (map[key] = {total:0, dias:0, horas:0}); o.total += valor; o.dias += 1; o.horas += horas; return o; };
+    const _dia = tn.tipo==='ajuste' ? 0 : 1;
+    R.total += valor; R.dias += _dia; R.horas += horas;
+    const acc = function(map, key){ const o = map[key] || (map[key] = {total:0, dias:0, horas:0}); o.total += valor; o.dias += _dia; o.horas += horas; return o; };
     acc(R.porUn, unidade);
     acc(R.porSetor, setor);
     const mon = isoDate(getMonday(new Date(tn.data+'T00:00:00')));
@@ -1908,6 +1940,68 @@ function gerarRelatorioPdf(){
   toast('✅ PDF gerado');
 }
 
+// ---- AJUSTES (BÔNUS / VALOR ATRASADO) ----
+function ajTxt(t){
+  const rot = t.ajusteTipo==='atrasado' ? '⏰ Valor atrasado' : '🎁 Bônus';
+  return rot + (t.observacao ? ' · '+t.observacao : '');
+}
+function ajAtualizarTipo(){
+  const tp = document.getElementById('aj-tipo').value;
+  document.getElementById('aj-data-lbl').textContent = tp==='atrasado' ? 'Data em que o freelancer trabalhou (define a semana)' : 'Data de referência (define a semana do pagamento)';
+  const d = document.getElementById('aj-data');
+  if(tp==='bonus' && !d.value) d.value = isoDate(new Date());
+  ajAtualizarSemana();
+}
+function ajAtualizarSemana(){
+  const v = document.getElementById('aj-data').value;
+  const el = document.getElementById('aj-semana');
+  el.textContent = v ? ('Entra na semana de '+relSemanaLabel(isoDate(getMonday(new Date(v+'T00:00:00'))))) : '';
+}
+function renderAjuste(){
+  if(currentRole==='lider'){ goTo('s-home'); return; }
+  const sel = document.getElementById('aj-fl'); if(!sel) return;
+  const u = getUnidadeAtual();
+  const cur = sel.value;
+  const arr = Object.keys(freelancersData).filter(function(id){ const f = freelancersData[id]; return f && f.ativo!==false && (f.unidade||'Cali Cravings')===u; })
+    .sort(function(a,b){ return (freelancersData[a].nome||'').localeCompare(freelancersData[b].nome||''); });
+  sel.innerHTML = '<option value="">Selecione...</option>' + arr.map(function(id){ const f = freelancersData[id]; return '<option value="'+id+'">'+relEsc(f.nome)+(f.funcao?' · '+relEsc(f.funcao):'')+'</option>'; }).join('');
+  if(cur) sel.value = cur;
+  const d = document.getElementById('aj-data');
+  if(!document.getElementById('aj-data').dataset.bound){ d.dataset.bound = '1'; d.addEventListener('change', ajAtualizarSemana); }
+  ajAtualizarTipo();
+  ajListarUltimos();
+}
+function ajListarUltimos(){
+  const el = document.getElementById('aj-ultimos'); if(!el) return;
+  const u = getUnidadeAtual();
+  const arr = Object.keys(turnosData).map(function(id){ return Object.assign({id:id}, turnosData[id]); })
+    .filter(function(t){ return t.tipo==='ajuste' && (t.unidade||'Cali Cravings')===u; })
+    .sort(function(a,b){ return (b.criadoEm||0)-(a.criadoEm||0); }).slice(0,10);
+  if(!arr.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card"><div class="clb">Últimos ajustes lançados</div>' + arr.map(function(t){
+    const f = freelancersData[t.freelancerId] || {nome:'(removido)'};
+    return '<div class="dr"><div class="dk">'+relEsc(f.nome)+' · '+isoParaBR(t.data)+'<br><small>'+relEsc(ajTxt(t))+'</small></div><div class="dv">'+brl(t.valorFixoDia||0)+'<button title="Excluir lançamento" onclick="excluirLancFech(\''+t.id+'\')" style="background:none;border:0;cursor:pointer;font-size:15px;margin-left:8px;padding:2px 4px">🗑️</button></div></div>';
+  }).join('') + '</div>';
+}
+function salvarAjuste(){
+  if(currentRole==='lider'){ toast('⚠️ Sem permissão'); return; }
+  const fid = document.getElementById('aj-fl').value;
+  const tp = document.getElementById('aj-tipo').value;
+  const v = parseFloat(document.getElementById('aj-valor').value);
+  const d = document.getElementById('aj-data').value;
+  const obs = document.getElementById('aj-obs').value.trim();
+  if(!fid){ toast('⚠️ Escolha o freelancer'); return; }
+  if(!(v>0)){ toast('⚠️ Informe o valor'); return; }
+  if(!d){ toast('⚠️ Informe a data'); return; }
+  const f = freelancersData[fid];
+  const sem = relSemanaLabel(isoDate(getMonday(new Date(d+'T00:00:00'))));
+  if(!confirm('Lançar '+(tp==='atrasado'?'valor atrasado':'bônus')+' de '+brl(v)+' para '+(f?f.nome:'')+'?\nEntra na semana de '+sem+'.')) return;
+  TN_REF.push({freelancerId:fid, data:d, unidade:getUnidadeAtual(), tipo:'ajuste', ajusteTipo:tp, valorFixoDia:Math.round(v*100)/100, observacao:obs, criadoEm:Date.now(), entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'ajuste'});
+  document.getElementById('aj-valor').value = '';
+  document.getElementById('aj-obs').value = '';
+  toast('✅ Ajuste lançado');
+  setTimeout(ajListarUltimos, 500);
+}
 // ---- EM ABERTO ----
 var pagamentosData = {}; var abListener = false;
 function abIniciar(){
@@ -1922,7 +2016,7 @@ function abAgrupar(un){
   const M = {};
   const get = function(mon, fid, unidade){
     const key = mon+'|'+fid+'|'+unidade;
-    return M[key] || (M[key] = {mon:mon, fid:fid, unidade:unidade, bruto:0, adiant:0, pago:0, saldo:0, dias:0, pags:[]});
+    return M[key] || (M[key] = {mon:mon, fid:fid, unidade:unidade, bruto:0, adiant:0, pago:0, saldo:0, dias:0, aj:0, pags:[]});
   };
   Object.keys(turnosData).forEach(function(id){
     const tn = turnosData[id];
@@ -1932,7 +2026,7 @@ function abAgrupar(un){
     if(un && unidade !== un) return;
     const valor = totalDiaTurno(tn, f) || 0;
     const o = get(isoDate(getMonday(new Date(tn.data+'T00:00:00'))), tn.freelancerId, unidade);
-    if(tn.tipo === 'adiantamento'){ o.adiant += Math.abs(valor); } else { o.bruto += valor; o.dias += 1; }
+    if(tn.tipo === 'adiantamento'){ o.adiant += Math.abs(valor); } else if(tn.tipo === 'ajuste'){ o.bruto += valor; o.aj += valor; } else { o.bruto += valor; o.dias += 1; }
     o.saldo += valor;
   });
   Object.keys(pagamentosData).forEach(function(id){
@@ -2026,7 +2120,7 @@ function renderEmAberto(){
       const pix = f.pix || '';
       return '<div class="ab-it">' +
         '<div class="ab-top"><div class="ab-nm">'+relEsc(nomeDe(o))+'<small>'+relEsc((f.funcao||'')+unTag(o))+'</small></div><div class="ab-sd">'+brl(o.saldo)+'</div></div>' +
-        '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto)+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +
+        '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto-o.aj)+(o.aj ? ' + ajustes '+brl(o.aj) : '')+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +
         (o.pago ? '<div class="ab-ln"><span>Pago parcial: '+brl(o.pago)+desf(o)+'</span><span></span></div>' : '') +
         '<div class="ab-pix">'+(pix ? '<span>Pix: <b>'+relEsc(pix)+'</b></span><button data-pix="'+relEsc(pix)+'" onclick="copiarPix(this.dataset.pix)"><i class="ti ti-copy"></i> copiar</button>' : '<span style="color:#c0392b">sem chave Pix cadastrada</span>')+
         '<button class="ab-pagar" data-wk="'+wk+'" data-fid="'+o.fid+'" data-un="'+relEsc(o.unidade)+'" data-saldo="'+o.saldo.toFixed(2)+'" onclick="abPagar(this)"><i class="ti ti-cash"></i> PAGAR</button></div>' +

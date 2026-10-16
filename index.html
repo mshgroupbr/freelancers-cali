@@ -332,6 +332,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
     <div id="ab-resumo"></div>
+    <button class="btn-pdf" onclick="gerarPdfEmAberto()"><i class="ti ti-file-type-pdf"></i> Gerar PDF dos valores em aberto</button>
   </div>
 </div>
 
@@ -2049,6 +2050,63 @@ function renderEmAberto(){
     }).join('') + '</div>';
   }
   document.getElementById('ab-resumo').innerHTML = h;
+}
+function gerarPdfEmAberto(){
+  if(currentRole==='lider'){ return; }
+  const sel = document.getElementById('ab-sem'); if(!sel || !sel.value){ toast('⚠️ Abra a tela e escolha a semana'); return; }
+  const wk = sel.value, un = document.getElementById('ab-un').value;
+  const todos = abAgrupar(un);
+  const abertos = todos.filter(function(o){ return o.mon === wk && o.saldo > 0.005; }).sort(function(a,b){ return b.saldo - a.saldo; });
+  const ant = {};
+  todos.forEach(function(o){ if(o.mon < wk && o.saldo > 0.005){ const a = ant[o.mon] || (ant[o.mon] = {total:0, n:0}); a.total += o.saldo; a.n += 1; } });
+  const antKeys = Object.keys(ant).sort().reverse();
+  if(!abertos.length && !antKeys.length){ toast('✅ Nada em aberto para gerar'); return; }
+  const jsPDF = window.jspdf.jsPDF;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const venc = new Date(wk+'T00:00:00'); venc.setDate(venc.getDate()+9);
+  const atrasado = isoDate(new Date()) > isoDate(venc);
+  const tot = abertos.reduce(function(s,o){ return s+o.saldo; }, 0);
+  let y = 42;
+  doc.setFont(undefined,'bold'); doc.setFontSize(15); doc.setTextColor(31,56,100);
+  doc.text('MASHA GROUP — FREELANCERS: VALORES EM ABERTO', 30, y); y += 18;
+  doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(60,60,60);
+  doc.text('Semana trabalhada: '+relSemanaLabel(wk)+'   ·   Unidade: '+(un||'Cali + Texas (geral)'), 30, y); y += 14;
+  doc.text('Vencimento: quarta-feira, '+fmtDataBR(venc)+(atrasado && abertos.length ? ' (atrasado)' : '')+'   ·   Gerado em '+new Date().toLocaleString('pt-BR'), 30, y); y += 22;
+  doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+  doc.text('A pagar: '+abertos.length+' freelancer(s) · Total '+brl(tot), 30, y); y += 4;
+  const nome = function(o){ const f = freelancersData[o.fid]; return f ? f.nome : '(removido)'; };
+  if(abertos.length){
+    doc.autoTable({
+      startY: y+4,
+      head: [['Freelancer','Função','Un.','Chave Pix','Diárias','Adiant.','Pago','A pagar']],
+      body: abertos.map(function(o){ const f = freelancersData[o.fid] || {}; return [nome(o), f.funcao||'', o.unidade==='Texas Country Bar'?'Texas':'Cali', f.pix||'(sem chave)', brl(o.bruto), o.adiant?('-'+brl(o.adiant)):'-', o.pago?('-'+brl(o.pago)):'-', brl(o.saldo)]; }),
+      foot: [['TOTAL','','','',brl(abertos.reduce(function(s,o){return s+o.bruto;},0)), '-'+brl(abertos.reduce(function(s,o){return s+o.adiant;},0)), '-'+brl(abertos.reduce(function(s,o){return s+o.pago;},0)), brl(tot)]],
+      showFoot:'lastPage',
+      styles:{fontSize:8, font:'helvetica', cellPadding:3}, headStyles:{fillColor:[31,56,100], textColor:255, fontStyle:'bold'},
+      footStyles:{fillColor:[252,228,214], textColor:[122,59,10], fontStyle:'bold'},
+      columnStyles:{4:{halign:'right'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right', fontStyle:'bold'}},
+      margin:{left:30, right:30}
+    });
+    y = doc.lastAutoTable.finalY + 22;
+  } else { y += 22; doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(60,60,60); doc.text('Tudo pago nesta semana.', 30, y); y += 22; }
+  if(antKeys.length){
+    if(y > 700){ doc.addPage(); y = 42; }
+    const totAnt = antKeys.reduce(function(s,k){ return s+ant[k].total; }, 0);
+    doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+    doc.text('Semanas anteriores ainda em aberto · '+brl(totAnt), 30, y); y += 4;
+    doc.autoTable({
+      startY: y+4, head:[['Semana','Freelancers','Em aberto']],
+      body: antKeys.map(function(k){ return [relSemanaLabel(k), String(ant[k].n), brl(ant[k].total)]; }),
+      foot:[['TOTAL','',brl(totAnt)]], showFoot:'lastPage',
+      styles:{fontSize:9, font:'helvetica'}, headStyles:{fillColor:[31,56,100], textColor:255, fontStyle:'bold'},
+      footStyles:{fillColor:[252,228,214], textColor:[122,59,10], fontStyle:'bold'},
+      columnStyles:{1:{halign:'right'},2:{halign:'right'}}, margin:{left:30, right:30}
+    });
+  }
+  const pages = doc.getNumberOfPages();
+  for(let p=1;p<=pages;p++){ doc.setPage(p); doc.setFontSize(8); doc.setTextColor(120,120,120); doc.text('Página '+p+' de '+pages, 520, 820); }
+  doc.save('Em_aberto_'+wk+(un?('_'+(un==='Texas Country Bar'?'Texas':'Cali')):'')+'.pdf');
+  toast('📄 PDF gerado');
 }
 // ---- LÍDERES DE SETOR ----
 async function buscarLiderAutorizado(email){

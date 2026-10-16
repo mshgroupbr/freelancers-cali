@@ -462,6 +462,7 @@ if('serviceWorker' in navigator){
         <div class="week-btn" onclick="mudarSemana(1)"><i class="ti ti-chevron-right"></i></div>
       </div>
     </div>
+    <div class="card" style="padding:10px 12px"><input id="fech-busca" type="search" placeholder="🔎 Filtrar pelo nome do freelancer..." oninput="renderFechamento()" autocomplete="off" style="margin:0"></div>
     <div id="fech-list"></div>
     <div class="card" style="background:#FCE4D6">
       <div class="dr" style="border:none;padding:0">
@@ -1119,6 +1120,25 @@ function excluirTurno(){
   toast('🗑️ Turno excluído');
   goTo(turnoBackTarget);
 }
+function excluirLancFech(id){
+  const tn = turnosData[id]; if(!tn) return;
+  if(currentRole==='lider' && liderInfo){ const ff = freelancersData[tn.freelancerId]; if(!ff || ff.setor!==liderInfo.setor){ toast('⚠️ Sem permissão para excluir este lançamento'); return; } }
+  if(currentRole!=='lider'){
+    const senha = prompt('Digite a senha para excluir:');
+    if(senha===null) return;
+    if(!SENHAS.includes((senha||'').trim())){ toast('Senha incorreta ❌'); return; }
+  }
+  const f = freelancersData[tn.freelancerId];
+  const desc = (tn.tipo==='adiantamento' ? 'adiantamento' : 'lançamento')+' de '+isoParaBR(tn.data)+' ('+brl(totalDiaTurno(tn,f))+') de '+(f?f.nome:'freelancer');
+  if(!confirm('Excluir '+desc+'?')) return;
+  if(tn.tipo==='adiantamento' && tn.origem==='plano'){
+    const sem = isoDate(getMonday(new Date(tn.data+'T00:00:00')));
+    const pl = (planoData[sem]||{})[tn.freelancerId];
+    if(pl && pl.turnoId===id) PLANO_REF.child(sem).child(tn.freelancerId).update({pago:null, turnoId:null, pagoEm:null});
+  }
+  TN_REF.child(id).remove();
+  toast('🗑️ Lançamento excluído');
+}
 function voltarDoTurno(){
   goTo(turnoBackTarget);
 }
@@ -1318,6 +1338,8 @@ function renderFechamento(){
     return;
   }
   let html = '';
+  const _qEl = document.getElementById('fech-busca');
+  const _q = (_qEl ? _qEl.value : '').trim().toLowerCase();
   Object.keys(byFl).sort((a,b)=>(freelancersData[a]?.nome||'').localeCompare(freelancersData[b]?.nome||'')).forEach(fid=>{
     const f = freelancersData[fid]||{nome:'(removido)'};
     const lista = byFl[fid].sort((a,b)=>a.data.localeCompare(b.data));
@@ -1330,14 +1352,14 @@ function renderFechamento(){
       const detalhe = t.tipo==='adiantamento' ? advTxt(t) : (t.valorFixoDia ? ('Fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horas.toFixed(2)+'h)'+intervaloTxt));
       return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-fechamento')">
         <div class="dk">${dataExibTurno(t)} · ${detalhe}</div>
-        <div class="dv"${total<0?' style="color:#c0392b"':''}>${brl(total)}</div>
+        <div class="dv"${total<0?' style="color:#c0392b"':''}>${brl(total)}<button title="Excluir lançamento" onclick="event.stopPropagation();excluirLancFech('${t.id}')" style="background:none;border:0;cursor:pointer;font-size:15px;margin-left:8px;padding:2px 4px">🗑️</button></div>
       </div>`;
     }).join('');
     totalGeral+=subtotal;
     const _pl = ((planoData[isoDate(currentWeekStart)]||{})[fid])||null;
     const _pg = !!(_pl && _pl.pago && _pl.turnoId && turnosData[_pl.turnoId]);
     fechResumo.push({fid, nome:f.nome, funcao:f.funcao||'', unidade:f.unidade||'', pix:f.pix||'', subtotal:(_pg?subtotal+_pl.valor:subtotal), pago:_pg, plano:_pl});
-    html += `<div class="card" style="margin-bottom:10px">
+    if(!_q || (f.nome||'').toLowerCase().indexOf(_q)>=0) html += `<div class="card" style="margin-bottom:10px">
       <div class="clb">${f.nome}${f.funcao?(' · '+f.funcao):''}</div>
       ${rowsHtml}
       <div class="dr" style="border-top:1px solid var(--bdr2);margin-top:4px;padding-top:8px">
@@ -1349,7 +1371,7 @@ function renderFechamento(){
       <button class="btn-sm" style="margin-top:6px;width:100%" onclick="enviarParaOutraUnidade('${fid}')"><i class="ti ti-arrows-exchange"></i> Enviar para ${getUnidadeAtual()==='Texas Country Bar'?'Cali Cravings':'Texas Country Bar'}</button>
     </div>`;
   });
-  cont.innerHTML = html;
+  cont.innerHTML = html || '<div class="empty"><i class="ti ti-search-off"></i>Nenhum freelancer encontrado</div>';
   document.getElementById('fech-total').textContent = brl(totalGeral);
   atualizarPlanoTotal();
 }

@@ -328,6 +328,8 @@ if('serviceWorker' in navigator){
       <label class="fl">Tipo</label>
       <select id="aj-tipo" onchange="ajAtualizarTipo()" style="margin-bottom:12px">
         <option value="bonus">🎁 Bônus</option>
+        <option value="taxa">💰 Taxa de serviço</option>
+        <option value="extra">⏱️ Horas extras</option>
         <option value="atrasado">⏰ Valor atrasado (esquecido em semana passada)</option>
       </select>
       <label class="fl">Valor (R$)</label>
@@ -1942,14 +1944,14 @@ function gerarRelatorioPdf(){
 
 // ---- AJUSTES (BÔNUS / VALOR ATRASADO) ----
 function ajTxt(t){
-  const rot = t.ajusteTipo==='atrasado' ? '⏰ Valor atrasado' : '🎁 Bônus';
+  const rot = ({atrasado:'⏰ Valor atrasado', taxa:'💰 Taxa de serviço', extra:'⏱️ Horas extras'})[t.ajusteTipo] || '🎁 Bônus';
   return rot + (t.observacao ? ' · '+t.observacao : '');
 }
 function ajAtualizarTipo(){
   const tp = document.getElementById('aj-tipo').value;
-  document.getElementById('aj-data-lbl').textContent = tp==='atrasado' ? 'Data em que o freelancer trabalhou (define a semana)' : 'Data de referência (define a semana do pagamento)';
+  document.getElementById('aj-data-lbl').textContent = tp==='atrasado' ? 'Data em que o freelancer trabalhou (define a semana)' : (tp==='extra' ? 'Data das horas extras (define a semana)' : (tp==='taxa' ? 'Data da taxa de serviço (define a semana)' : 'Data de referência (define a semana do pagamento)'));
   const d = document.getElementById('aj-data');
-  if(tp==='bonus' && !d.value) d.value = isoDate(new Date());
+  if(tp!=='atrasado' && !d.value) d.value = isoDate(new Date());
   ajAtualizarSemana();
 }
 function ajAtualizarSemana(){
@@ -1995,7 +1997,7 @@ function salvarAjuste(){
   if(!d){ toast('⚠️ Informe a data'); return; }
   const f = freelancersData[fid];
   const sem = relSemanaLabel(isoDate(getMonday(new Date(d+'T00:00:00'))));
-  if(!confirm('Lançar '+(tp==='atrasado'?'valor atrasado':'bônus')+' de '+brl(v)+' para '+(f?f.nome:'')+'?\nEntra na semana de '+sem+'.')) return;
+  if(!confirm('Lançar '+(({atrasado:'valor atrasado', taxa:'taxa de serviço', extra:'horas extras'})[tp]||'bônus')+' de '+brl(v)+' para '+(f?f.nome:'')+'?\nEntra na semana de '+sem+'.')) return;
   TN_REF.push({freelancerId:fid, data:d, unidade:getUnidadeAtual(), tipo:'ajuste', ajusteTipo:tp, valorFixoDia:Math.round(v*100)/100, observacao:obs, criadoEm:Date.now(), entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'ajuste'});
   document.getElementById('aj-valor').value = '';
   document.getElementById('aj-obs').value = '';

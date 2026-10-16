@@ -187,6 +187,9 @@ body.desk #s-relatorio .pad{max-width:980px}
 .ab-late{color:#c0392b;font-weight:600}
 .ab-old{display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--surf2);border:.5px solid var(--bdr2);border-radius:10px;padding:10px 12px;margin-top:8px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--hd)}
 body.desk #s-aberto .pad{max-width:980px}
+.ab-pagar{margin-left:auto;background:#1e8e5a;color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
+.ab-pagar:active{opacity:.8}
+.ab-un{background:none;border:0;color:#c0392b;font-size:11px;text-decoration:underline;cursor:pointer;font-family:inherit;margin-left:6px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1883,8 +1886,21 @@ function gerarRelatorioPdf(){
 }
 
 // ---- EM ABERTO ----
+var pagamentosData = {}; var abListener = false;
+function abIniciar(){
+  if(abListener) return; abListener = true;
+  db.ref('pagamentos').on('value', function(s){
+    pagamentosData = s.val() || {};
+    const el = document.getElementById('s-aberto');
+    if(el && el.classList.contains('active')) renderEmAberto();
+  });
+}
 function abAgrupar(un){
   const M = {};
+  const get = function(mon, fid, unidade){
+    const key = mon+'|'+fid+'|'+unidade;
+    return M[key] || (M[key] = {mon:mon, fid:fid, unidade:unidade, bruto:0, adiant:0, pago:0, saldo:0, dias:0, pags:[]});
+  };
   Object.keys(turnosData).forEach(function(id){
     const tn = turnosData[id];
     if(!tn || !tn.data) return;
@@ -1892,17 +1908,57 @@ function abAgrupar(un){
     const unidade = tn.unidade || (f && f.unidade) || 'Cali Cravings';
     if(un && unidade !== un) return;
     const valor = totalDiaTurno(tn, f) || 0;
-    const mon = isoDate(getMonday(new Date(tn.data+'T00:00:00')));
-    const key = mon+'|'+tn.freelancerId+'|'+unidade;
-    const o = M[key] || (M[key] = {mon:mon, fid:tn.freelancerId, unidade:unidade, bruto:0, adiant:0, saldo:0, dias:0});
+    const o = get(isoDate(getMonday(new Date(tn.data+'T00:00:00'))), tn.freelancerId, unidade);
     if(tn.tipo === 'adiantamento'){ o.adiant += Math.abs(valor); } else { o.bruto += valor; o.dias += 1; }
     o.saldo += valor;
+  });
+  Object.keys(pagamentosData).forEach(function(id){
+    const p = pagamentosData[id];
+    if(!p || !p.semana) return;
+    const unidade = p.unidade || 'Cali Cravings';
+    if(un && unidade !== un) return;
+    const o = get(p.semana, p.freelancerId, unidade);
+    o.pago += (p.valor||0); o.saldo -= (p.valor||0); o.pags.push({id:id, valor:p.valor||0, data:p.pagoData||''});
   });
   return Object.keys(M).map(function(k){ return M[k]; });
 }
 function abIr(wk){ const s = document.getElementById('ab-sem'); if(s){ s.value = wk; renderEmAberto(); window.scrollTo(0,0); } }
+function abFecharModal(){ const m = document.getElementById('ab-modal'); if(m) m.remove(); }
+function abPagar(btn){
+  const wk = btn.dataset.wk, fid = btn.dataset.fid, un = btn.dataset.un, saldo = parseFloat(btn.dataset.saldo);
+  const f = freelancersData[fid]; if(!f) return;
+  abFecharModal();
+  const m = document.createElement('div');
+  m.id = 'ab-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = '<div style="background:var(--surf);border-radius:14px;padding:18px;width:100%;max-width:360px">' +
+    '<div style="font-weight:700;color:var(--hd);font-size:16px;margin-bottom:2px">Registrar pagamento</div>' +
+    '<div style="font-size:13px;color:var(--tx3);margin-bottom:12px">'+relEsc(f.nome)+' · semana '+relSemanaLabel(wk)+'</div>' +
+    '<label class="fl">Valor pago (R$)</label><input id="ab-m-v" type="number" step="0.01" value="'+saldo.toFixed(2)+'" style="margin-bottom:12px">' +
+    '<label class="fl">Data do pagamento</label><input id="ab-m-d" type="date" value="'+isoDate(new Date())+'" style="margin-bottom:14px">' +
+    '<div style="display:flex;gap:8px"><button class="btn-or" style="flex:1;background:var(--surf2);color:var(--hd)" onclick="abFecharModal()">Cancelar</button>' +
+    '<button class="btn-or" style="flex:1" id="ab-m-ok">Confirmar</button></div></div>';
+  document.body.appendChild(m);
+  document.getElementById('ab-m-ok').onclick = function(){
+    const v = parseFloat(document.getElementById('ab-m-v').value);
+    const d = document.getElementById('ab-m-d').value;
+    if(!d){ toast('⚠️ Informe a data do pagamento'); return; }
+    if(!(v>0)){ toast('⚠️ Informe o valor pago'); return; }
+    if(v > saldo + 0.005 && !confirm('O valor ('+brl(v)+') é maior que o saldo ('+brl(saldo)+'). Confirmar mesmo assim?')) return;
+    db.ref('pagamentos').push({freelancerId:fid, semana:wk, unidade:un, valor:Math.round(v*100)/100, pagoData:d, criadoEm:Date.now()});
+    abFecharModal();
+    toast('✅ Pagamento registrado');
+  };
+}
+function abDesfazer(btn){
+  const id = btn.dataset.id;
+  if(!confirm('Desfazer este pagamento? O valor volta para "em aberto".')) return;
+  db.ref('pagamentos/'+id).remove();
+  toast('↩️ Pagamento desfeito');
+}
 function renderEmAberto(){
   if(currentRole==='lider'){ goTo('s-home'); return; }
+  abIniciar();
   const sel = document.getElementById('ab-sem');
   if(!sel) return;
   if(!sel.options.length){
@@ -1924,15 +1980,17 @@ function renderEmAberto(){
   const totAberto = abertos.reduce(function(s,o){ return s+o.saldo; }, 0);
   const totBruto = sem.reduce(function(s,o){ return s+o.bruto; }, 0);
   const totAdiant = sem.reduce(function(s,o){ return s+o.adiant; }, 0);
+  const totPago = sem.reduce(function(s,o){ return s+o.pago; }, 0);
   const venc = new Date(wk+'T00:00:00'); venc.setDate(venc.getDate()+9);
   const atrasado = isoDate(new Date()) > isoDate(venc);
   const nomeDe = function(o){ const f = freelancersData[o.fid]; return f ? f.nome : '(removido)'; };
   const unTag = function(o){ return un ? '' : ' · '+(o.unidade==='Texas Country Bar'?'Texas':'Cali'); };
+  const desf = function(o){ return o.pags.map(function(p){ return ' <button class="ab-un" data-id="'+p.id+'" onclick="abDesfazer(this)" title="Desfazer pagamento de '+brl(p.valor)+'">desfazer'+(o.pags.length>1?' '+brl(p.valor):'')+'</button>'; }).join(''); };
   let h = '<div class="stats">' +
     '<div class="stat"><div class="stat-l">Total em aberto</div><div class="stat-n o">'+brl(totAberto)+'</div></div>' +
     '<div class="stat"><div class="stat-l">Freelancers a pagar</div><div class="stat-n">'+abertos.length+'</div></div>' +
     '<div class="stat"><div class="stat-l">Total da semana</div><div class="stat-n" style="font-size:20px">'+brl(totBruto)+'</div></div>' +
-    '<div class="stat"><div class="stat-l">Já adiantado / quitado</div><div class="stat-n g" style="font-size:20px">'+brl(totAdiant)+' · '+quitados.length+'</div></div>' +
+    '<div class="stat"><div class="stat-l">Adiantado + pago na quarta</div><div class="stat-n g" style="font-size:20px">'+brl(totAdiant+totPago)+'</div></div>' +
     '</div>' +
     '<div class="rs" style="margin:2px 4px 8px">Vencimento: <span class="'+(atrasado && abertos.length ? 'ab-late' : '')+'">quarta-feira, '+fmtDataBR(venc)+(atrasado && abertos.length ? ' (atrasado)' : '')+'</span></div>';
   if(!sem.length){
@@ -1946,14 +2004,17 @@ function renderEmAberto(){
       return '<div class="ab-it">' +
         '<div class="ab-top"><div class="ab-nm">'+relEsc(nomeDe(o))+'<small>'+relEsc((f.funcao||'')+unTag(o))+'</small></div><div class="ab-sd">'+brl(o.saldo)+'</div></div>' +
         '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto)+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +
-        '<div class="ab-pix">'+(pix ? '<span>Pix: <b>'+relEsc(pix)+'</b></span><button data-pix="'+relEsc(pix)+'" onclick="copiarPix(this.dataset.pix)"><i class="ti ti-copy"></i> copiar</button>' : '<span style="color:#c0392b">sem chave Pix cadastrada</span>')+'</div>' +
+        (o.pago ? '<div class="ab-ln"><span>Pago parcial: '+brl(o.pago)+desf(o)+'</span><span></span></div>' : '') +
+        '<div class="ab-pix">'+(pix ? '<span>Pix: <b>'+relEsc(pix)+'</b></span><button data-pix="'+relEsc(pix)+'" onclick="copiarPix(this.dataset.pix)"><i class="ti ti-copy"></i> copiar</button>' : '<span style="color:#c0392b">sem chave Pix cadastrada</span>')+
+        '<button class="ab-pagar" data-wk="'+wk+'" data-fid="'+o.fid+'" data-un="'+relEsc(o.unidade)+'" data-saldo="'+o.saldo.toFixed(2)+'" onclick="abPagar(this)"><i class="ti ti-cash"></i> PAGAR</button></div>' +
         '</div>';
     }).join('') + '</div>';
   }
   if(quitados.length){
     h += '<div class="card"><div class="clb">Quitados ('+quitados.length+')</div>' + quitados.sort(function(a,b){ return nomeDe(a).localeCompare(nomeDe(b)); }).map(function(o){
-      const extra = o.saldo < -0.005 ? ' <span style="color:#c0392b">· adiantou '+brl(-o.saldo)+' a mais</span>' : '';
-      return '<div class="dr"><div class="dk">'+relEsc(nomeDe(o))+relEsc(unTag(o))+extra+'</div><div class="dv" style="color:#1e8e5a">✓ pago</div></div>';
+      const extra = o.saldo < -0.005 ? ' <span style="color:#c0392b">· pago/adiantado '+brl(-o.saldo)+' a mais</span>' : '';
+      const quando = o.pags.length ? ' em '+o.pags.map(function(p){ return p.data ? isoParaBR(p.data) : ''; }).join(', ') : '';
+      return '<div class="dr"><div class="dk">'+relEsc(nomeDe(o))+relEsc(unTag(o))+extra+(o.pags.length ? desf(o) : '')+'</div><div class="dv" style="color:#1e8e5a">✓ pago'+quando+'</div></div>';
     }).join('') + '</div>';
   }
   const ant = {};

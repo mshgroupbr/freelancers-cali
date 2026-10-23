@@ -165,7 +165,17 @@ body.desk #s-setor .pad{display:grid;grid-template-columns:1fr 1fr;align-items:s
 body.desk #s-setor .pad>*{min-width:0}
 body.desk #s-setor .pad>.card:first-child{grid-column:1/-1;max-width:420px}
 body.desk #s-turno .body{max-width:760px}
-body.desk #s-acessos .pad,body.desk #s-historico .pad{max-width:900px}
+body.desk #s-acessos .pad,body.desk #s-historico .pad,body.desk #s-equipe .pad{max-width:900px}
+.eq-card{background:var(--surf);border:.5px solid var(--bdr);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.eq-top{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.eq-nome{font-weight:600;font-size:15px}
+.eq-fn{font-size:12px;color:var(--tx3)}
+.eq-num{margin-left:auto;text-align:right;font-size:12px;color:var(--tx2);line-height:1.5}
+.eq-num b{font-size:16px;color:var(--tx)}
+.eq-det{display:none;border-top:.5px solid var(--bdr);padding:6px 14px 12px}
+.eq-card.open .eq-det{display:block}
+.eq-dia{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:13.5px;border-bottom:.5px dashed var(--bdr)}
+.eq-sub{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin:10px 0 2px}
 body.desk .modal-box{max-width:520px}
 body.desk #toast{left:calc(50% + 124px)}
 body.desk.no-side #toast{left:50%}
@@ -266,6 +276,7 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-ajuste');renderAjuste()"><i class="ti ti-gift"></i> Lançar ajuste (bônus / atrasado)</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
+    <button class="btn-excel-home lider-only" style="display:none" onclick="goTo('s-equipe');renderEquipe()"><i class="ti ti-calendar-stats"></i> Histórico da equipe (resumo semanal)</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-relatorio');renderRelatorio()"><i class="ti ti-file-analytics"></i> Relatório de gastos</button>
@@ -533,6 +544,27 @@ if('serviceWorker' in navigator){
         <div class="dk" style="font-weight:700" id="hist-total"></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- EQUIPE DO SETOR (resumo semanal, só dias e horas) -->
+<div class="screen" id="s-equipe">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Histórico da equipe</h1><p id="eq-sub">Resumo semanal</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <div class="week-nav">
+        <div class="week-btn" onclick="eqMudarSemana(-1)"><i class="ti ti-chevron-left"></i></div>
+        <div class="week-lbl" id="eq-range">-</div>
+        <div class="week-btn" onclick="eqMudarSemana(1)"><i class="ti ti-chevron-right"></i></div>
+      </div>
+    </div>
+    <div class="card" style="padding:10px 12px"><input id="eq-busca" type="search" placeholder="🔎 Filtrar pelo nome..." oninput="renderEquipe()" autocomplete="off" style="margin:0"></div>
+    <div id="eq-list"></div>
+    <div class="card" id="eq-total" style="font-weight:600"></div>
+    <button class="btn-excel-home" onclick="eqWhatsapp()"><i class="ti ti-brand-whatsapp"></i> Enviar resumo da semana (WhatsApp)</button>
   </div>
 </div>
 
@@ -1629,7 +1661,7 @@ function renderHistoricoSelect(){
   if(cur) sel.value=cur;
 }
 function renderHistorico(){
-  if(currentRole==='lider'){ goTo('s-home'); return; }
+  if(currentRole==='lider'){ goTo('s-equipe'); renderEquipe(); return; }
   const selEl = document.getElementById('hist-freelancer');
   if(!selEl) return;
   const fid = selEl.value;
@@ -1646,6 +1678,65 @@ function renderHistorico(){
     return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${dataExibTurno(t)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
   }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
   totalEl.textContent = arr.length ? ('Total acumulado: '+brl(total)) : '';
+}
+
+// ---- EQUIPE DO SETOR: resumo semanal (somente dias e horas, sem valores) ----
+var eqWeekStart = null, eqResumo = [];
+function eqEhTrabalho(t){ return t.tipo!=='adiantamento' && t.tipo!=='ajuste' && t.tipo!=='adiant'; }
+function eqMudarSemana(d){ eqWeekStart.setDate(eqWeekStart.getDate()+d*7); renderEquipe(); }
+function eqFmtH(h){ const m=Math.round(h*60); return Math.floor(m/60)+'h'+(m%60?String(m%60).padStart(2,'0'):''); }
+function eqDiaSemana(iso){ return ['dom','seg','ter','qua','qui','sex','sáb'][new Date(iso+'T00:00:00').getDay()]; }
+function eqEsc(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function eqLinhaTurno(t){
+  const dia = eqDiaSemana(t.data)+' '+isoParaBR(t.data).slice(0,5);
+  if(t.valorFixoDia && !t.entrada) return {dia:dia, txt:'diária', h:0, fixo:true};
+  const h = horasComIntervalo(t);
+  const iv = (t.intervaloInicio && t.intervaloFim) ? ' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':'') : '';
+  return {dia:dia, txt:(t.entrada||'')+' - '+(t.saida||'')+iv, h:h, fixo:false};
+}
+function eqSemanasAnteriores(fid){
+  const por={};
+  Object.values(turnosDaUnidade()).forEach(function(t){
+    if(t.freelancerId!==fid || !eqEhTrabalho(t)) return;
+    const k=isoDate(getMonday(new Date(t.data+'T00:00:00')));
+    const o=por[k]||(por[k]={dias:{},h:0}); o.dias[t.data]=1; o.h+=(t.valorFixoDia && !t.entrada)?0:horasComIntervalo(t);
+  });
+  return Object.keys(por).sort().reverse().slice(0,8).map(function(k){ const f=new Date(k+'T00:00:00'), l=new Date(f); l.setDate(l.getDate()+6);
+    return {lbl:isoParaBR(k).slice(0,5)+' a '+isoParaBR(isoDate(l)).slice(0,5), dias:Object.keys(por[k].dias).length, h:por[k].h}; });
+}
+function eqToggle(el){ el.parentNode.classList.toggle('open'); }
+function renderEquipe(){
+  if(!eqWeekStart) eqWeekStart = getMonday(new Date());
+  const fim = new Date(eqWeekStart); fim.setDate(fim.getDate()+6);
+  document.getElementById('eq-range').textContent = isoParaBR(isoDate(eqWeekStart)).slice(0,5)+' a '+isoParaBR(isoDate(fim)).slice(0,5);
+  document.getElementById('eq-sub').textContent = (currentRole==='lider' && liderInfo) ? ('Resumo semanal · '+liderInfo.setor) : 'Resumo semanal';
+  const busca=(document.getElementById('eq-busca').value||'').trim().toLowerCase();
+  const turnos = turnosDaSemana(eqWeekStart).map(function(x){ return Object.assign({id:x[0]}, x[1]); }).filter(eqEhTrabalho);
+  const fls = freelancersDaUnidade();
+  const porF = {}; turnos.forEach(function(t){ (porF[t.freelancerId]=porF[t.freelancerId]||[]).push(t); });
+  eqResumo=[]; let totDias=0, totH=0, html='';
+  Object.keys(porF).map(function(fid){ return {fid:fid, f:fls[fid]||freelancersData[fid]||{nome:'(removido)'}}; })
+    .filter(function(x){ return !busca || (x.f.nome||'').toLowerCase().indexOf(busca)>=0; })
+    .sort(function(a,b){ return (a.f.nome||'').localeCompare(b.f.nome||''); })
+    .forEach(function(x){
+      const ts=porF[x.fid].sort(function(a,b){ return (a.data+(a.entrada||'')).localeCompare(b.data+(b.entrada||'')); });
+      const lin=ts.map(eqLinhaTurno); const dias=Object.keys(ts.reduce(function(m,t){ m[t.data]=1; return m; },{})).length;
+      const h=lin.reduce(function(s,l){ return s+l.h; },0); totDias+=dias; totH+=h;
+      eqResumo.push({nome:x.f.nome, dias:dias, h:h, lin:lin});
+      const ant=eqSemanasAnteriores(x.fid);
+      html+='<div class="eq-card"><div class="eq-top" onclick="eqToggle(this)"><div><div class="eq-nome">'+eqEsc(x.f.nome)+'</div><div class="eq-fn">'+eqEsc(x.f.funcao||'')+'</div></div><div class="eq-num"><b>'+dias+'</b> dia'+(dias>1?'s':'')+'<br><b>'+eqFmtH(h)+'</b></div></div>'+
+        '<div class="eq-det">'+lin.map(function(l){ return '<div class="eq-dia"><span>'+l.dia+'</span><span>'+eqEsc(l.txt)+(l.fixo?'':' ('+eqFmtH(l.h)+')')+'</span></div>'; }).join('')+
+        '<div class="eq-sub">Últimas semanas</div>'+ant.map(function(a){ return '<div class="eq-dia"><span>'+a.lbl+'</span><span>'+a.dias+' dia'+(a.dias>1?'s':'')+' · '+eqFmtH(a.h)+'</span></div>'; }).join('')+'</div></div>';
+    });
+  document.getElementById('eq-list').innerHTML = html || '<div class="empty"><i class="ti ti-calendar-off"></i>Nenhum lançamento nesta semana</div>';
+  document.getElementById('eq-total').textContent = eqResumo.length ? ('Total da semana: '+eqResumo.length+' colaborador(es) · '+totDias+' dias · '+eqFmtH(totH)) : '';
+}
+function eqWhatsapp(){
+  if(!eqResumo.length){ toast('⚠️ Nada para enviar nesta semana'); return; }
+  const setor=(liderInfo&&liderInfo.setor)||'';
+  let txt='*Resumo semanal '+setor+'* ('+document.getElementById('eq-range').textContent+')\n';
+  eqResumo.forEach(function(r){ txt+='\n• '+r.nome+': '+r.dias+' dia'+(r.dias>1?'s':'')+' · '+eqFmtH(r.h); });
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
 }
 
 // ---- EXPORTAÇÃO EXCEL (replica o Gabarito) ----
@@ -2233,6 +2324,7 @@ function sair(){
 function aplicarRestricoesPapel(){
   const isLider = currentRole==='lider';
   document.querySelectorAll('.gerente-only').forEach(function(el){ el.style.display = isLider ? 'none' : ''; });
+  document.querySelectorAll('.lider-only').forEach(function(el){ el.style.display = isLider ? '' : 'none'; });
   const info = document.getElementById('home-role-info');
   if(info){ info.textContent = (isLider && liderInfo) ? ('Líder de '+liderInfo.setor+' · '+liderInfo.email) : ''; }
 }

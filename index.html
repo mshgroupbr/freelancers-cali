@@ -676,6 +676,7 @@ const TN_REF = db.ref('turnos');
 const LIDERES_REF = db.ref('lideresAutorizados');
 const PLANO_REF = db.ref('planoPagamento');
 let planoData = {};
+const PLEX_REF = db.ref('planoExtra'); let planoExData = {};
 const VENDAS_REF = db.ref('gestao_vendas');
 
 const SENHAS = ['127127','128128','129129','130130','000813','416100'];
@@ -835,6 +836,7 @@ function initData(){
     renderHome();
     renderHistorico();
   });
+  PLEX_REF.on('value', snap=>{ planoExData = snap.val()||{}; renderFechamento(); });
   PLANO_REF.on('value', snap=>{
     planoData = snap.val()||{};
     renderFechamento();
@@ -1199,6 +1201,7 @@ function excluirLancFech(id){
     const sem = isoDate(getMonday(new Date(tn.data+'T00:00:00')));
     const pl = (planoData[sem]||{})[tn.freelancerId];
     if(pl && pl.turnoId===id) PLANO_REF.child(sem).child(tn.freelancerId).update({pago:null, turnoId:null, pagoEm:null});
+    if(tn.planoKey) PLEX_REF.child(sem).child(tn.freelancerId).child(tn.planoKey).update({pago:null, turnoId:null, pagoEm:null});
   }
   TN_REF.child(id).remove();
   toast('🗑️ Lançamento excluído');
@@ -1424,7 +1427,8 @@ function renderFechamento(){
     totalGeral+=subtotal;
     const _pl = ((planoData[isoDate(currentWeekStart)]||{})[fid])||null;
     const _pg = !!(_pl && _pl.pago && _pl.turnoId && turnosData[_pl.turnoId]);
-    fechResumo.push({fid, nome:f.nome, funcao:f.funcao||'', unidade:f.unidade||'', pix:f.pix||'', subtotal:(_pg?subtotal+_pl.valor:subtotal), pago:_pg, plano:_pl});
+    const _ex = planosExtraDe(fid); const _exPago = _ex.filter(e=>e.pago).reduce((s,e)=>s+e.valor,0);
+    fechResumo.push({fid, nome:f.nome, funcao:f.funcao||'', unidade:f.unidade||'', pix:f.pix||'', subtotal:(_pg?subtotal+_pl.valor:subtotal)+_exPago, pago:_pg, plano:_pl, extras:_ex});
     if(!_q || (f.nome||'').toLowerCase().indexOf(_q)>=0) html += `<div class="card" style="margin-bottom:10px">
       <div class="clb">${f.nome}${f.funcao?(' · '+f.funcao):''}</div>
       ${rowsHtml}
@@ -1453,23 +1457,24 @@ function adicionarPix(fid){
 }
 function atualizarPlanoTotal(){
   const el = document.getElementById('fech-plano-total'); if(!el) return;
-  const com = fechResumo.filter(r=>r.plano && r.plano.valor>0);
+  const com = planosFlat();
+  const nColab = Object.keys(com.reduce(function(o,r){o[r.fid]=1;return o;},{})).length;
   const tot = com.reduce((s,r)=>s+r.plano.valor,0);
   const sub = fechResumo.reduce((s,r)=>s+r.subtotal,0);
   const pagoTot = com.filter(r=>r.pago).reduce((s,r)=>s+r.plano.valor,0);
   el.textContent = brl(tot);
   const info = document.getElementById('fech-plano-info');
-  if(info) info.textContent = com.length ? (com.length+' de '+fechResumo.length+' colaboradores · saldo restante '+brl(sub-tot)+(pagoTot?' · já transferido '+brl(pagoTot):'')) : 'Nenhuma sugestão de adiantamento definida nesta semana';
+  if(info) info.textContent = com.length ? (nColab+' de '+fechResumo.length+' colaboradores · saldo restante '+brl(sub-tot)+(pagoTot?' · já transferido '+brl(pagoTot):'')) : 'Nenhuma sugestão de adiantamento definida nesta semana';
 }
 function relatorioAdiantamentos(){
-  const com = fechResumo.filter(r=>r.plano && r.plano.valor>0).sort((a,b)=>((a.plano.data||'9999')+a.nome).localeCompare((b.plano.data||'9999')+b.nome));
+  const com = planosFlat().sort((a,b)=>((a.plano.data||'9999')+a.nome).localeCompare((b.plano.data||'9999')+b.nome));
   if(!com.length){ toast('⚠️ Nenhuma sugestão de adiantamento nesta semana'); return; }
   const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
   const tot = com.reduce((s,r)=>s+r.plano.valor,0);
-  const totSub = com.reduce((s,r)=>s+r.subtotal,0);
+  const totSub = com.reduce((s,r)=>s+(r.subtotal||0),0);
   const pagoT = com.filter(r=>r.pago).reduce((s,r)=>s+r.plano.valor,0);
   const porData = {}; com.forEach(r=>{ const k=r.plano.data||''; porData[k]=(porData[k]||0)+r.plano.valor; });
-  const linhas = com.map(r=>'<tr><td>'+r.nome+(r.funcao?'<br><small>'+r.funcao+'</small>':'')+'</td><td>'+r.unidade+'</td><td>'+(r.pix||'<span style="color:#c0392b">sem chave</span>')+'</td><td class="n">'+brl(r.subtotal)+'</td><td class="n"><b>'+brl(r.plano.valor)+'</b></td><td>'+(r.plano.data?isoParaBR(r.plano.data):'-')+'</td><td class="n">'+brl(r.subtotal-r.plano.valor)+'</td><td>'+(r.pago?('✔ Pago em '+fmtDataHoraBR(r.plano.pagoEm||Date.now())):'Pendente')+'</td></tr>').join('');
+  const linhas = com.map(r=>'<tr><td>'+r.nome+(r.idx>0?' <small>(adiant. '+(r.idx+1)+')</small>':'')+(r.funcao?'<br><small>'+r.funcao+'</small>':'')+'</td><td>'+r.unidade+'</td><td>'+(r.pix||'<span style="color:#c0392b">sem chave</span>')+'</td><td class="n">'+(r.subtotal==null?'-':brl(r.subtotal))+'</td><td class="n"><b>'+brl(r.plano.valor)+'</b></td><td>'+(r.plano.data?isoParaBR(r.plano.data):'-')+'</td><td class="n">'+(r.saldo==null?'-':brl(r.saldo))+'</td><td>'+(r.pago?('✔ Pago em '+fmtDataHoraBR(r.plano.pagoEm||Date.now())):'Pendente')+'</td></tr>').join('');
   const datas = Object.keys(porData).sort().map(k=>'<div>'+(k?isoParaBR(k):'Sem data')+': <b>'+brl(porData[k])+'</b></div>').join('');
   const w = window.open('', '_blank');
   if(!w){ toast('⚠️ Permita pop-ups para gerar o relatório'); return; }
@@ -1519,6 +1524,11 @@ function enviarParaOutraUnidade(fid){
     up['planoPagamento/'+semana+'/'+alvoId] = plano;
     up['planoPagamento/'+semana+'/'+fid] = null;
   }
+  const pex = (planoExData[semana]||{})[fid];
+  if(pex && alvoId !== fid){
+    up['planoExtra/'+semana+'/'+alvoId] = pex;
+    up['planoExtra/'+semana+'/'+fid] = null;
+  }
   db.ref().update(up).then(function(){
     toast('✅ ' + lanc.length + ' lançamento(s) enviados para ' + destino);
   }).catch(function(){
@@ -1529,7 +1539,8 @@ function copiarPix(p){
   if(navigator.clipboard){ navigator.clipboard.writeText(p).then(()=>toast('📋 Chave Pix copiada')); }
   else { toast(p); }
 }
-function blocoPixPlano(fid, f, subtotal){
+function blocoPixPlano(fid, f, subtotal){ return blocoPixPlano0(fid, f, subtotal) + blocoPlanoExtras(fid); }
+function blocoPixPlano0(fid, f, subtotal){
   const semana = isoDate(currentWeekStart);
   const plano = (planoData[semana]||{})[fid] || {};
   const pago = !!(plano.pago && plano.turnoId && turnosData[plano.turnoId]);
@@ -1588,6 +1599,80 @@ function salvarPlano(fid){
   if(!v || v<=0){ ref.remove(); toast('Plano removido'); return; }
   ref.set({valor:v, data:d||''});
   toast('✅ Plano salvo');
+}
+
+// ---- ADIANTAMENTOS ADICIONAIS (vários por colaborador na semana) ----
+function planosExtraDe(fid){
+  const o = (planoExData[isoDate(currentWeekStart)]||{})[fid]||{};
+  return Object.keys(o).map(function(k){ const e=o[k]||{}; return {k:k, valor:Number(e.valor)||0, data:e.data||'', pago:!!(e.pago && e.turnoId && turnosData[e.turnoId]), pagoEm:e.pagoEm||null, turnoId:e.turnoId||null}; }).filter(function(e){ return e.valor>0; });
+}
+function planosFlat(){
+  const out = [];
+  fechResumo.forEach(function(r){
+    const lista = [];
+    if(r.plano && r.plano.valor>0) lista.push({valor:r.plano.valor, data:r.plano.data, pago:r.pago, pagoEm:r.plano.pagoEm});
+    (r.extras||[]).forEach(function(e){ lista.push({valor:e.valor, data:e.data, pago:e.pago, pagoEm:e.pagoEm}); });
+    const soma = lista.reduce(function(s,p){ return s+p.valor; },0);
+    lista.forEach(function(p,i){ out.push({fid:r.fid, nome:r.nome, funcao:r.funcao, unidade:r.unidade, pix:r.pix, subtotal:i===0?r.subtotal:null, saldo:i===0?(r.subtotal-soma):null, plano:p, pago:p.pago, idx:i}); });
+  });
+  return out;
+}
+function blocoPlanoExtras(fid){
+  const sem = isoDate(currentWeekStart);
+  const lista = (planoExData[sem]||{})[fid]||{};
+  let h = '';
+  Object.keys(lista).forEach(function(k,i){
+    const e = lista[k]||{}; const pago = !!(e.pago && e.turnoId && turnosData[e.turnoId]);
+    const dis = pago?' disabled':'';
+    h += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)"><div style="font-size:12px;font-weight:600;margin-bottom:6px">Adiantamento adicional '+(i+2)+'</div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+      '<input id="plx-v-'+k+'" type="number" step="0.01" placeholder="R$ valor" value="'+(e.valor||'')+'" style="flex:1;min-width:0"'+dis+'>'+
+      '<input id="plx-d-'+k+'" type="date" value="'+(e.data||'')+'" style="flex:1;min-width:0"'+dis+'>'+
+      '<button class="btn-sm" onclick="salvarPlanoEx(\''+fid+'\',\''+k+'\')">Salvar</button>'+
+      '<button class="btn-sm" title="'+(pago?'Transferência confirmada (toque para desfazer)':'Confirmar que o financeiro transferiu')+'" style="font-weight:700;'+(pago?'background:#1d9e75;color:#fff;border-color:#1d9e75':'')+'" onclick="confirmarPlanoEx(\''+fid+'\',\''+k+'\')">✓</button>'+
+      '<button class="btn-sm" title="Remover" onclick="removerPlanoEx(\''+fid+'\',\''+k+'\')">🗑️</button>'+
+      '</div>'+(e.valor>0?(pago?'<div style="font-size:12px;margin-top:6px;color:#1d9e75;font-weight:600">✔ Transferido '+brl(e.valor)+(e.pagoEm?(' em '+fmtDataHoraBR(e.pagoEm)):'')+' · lançado na folha</div>':'<div style="font-size:12px;margin-top:6px;color:#1F3864">Sugestão: pagar '+brl(e.valor)+(e.data?(' até '+isoParaBR(e.data)):'')+'</div>'):'')+'</div>';
+  });
+  h += '<div style="margin-top:8px"><button class="btn-sm" style="width:100%" onclick="addPlanoEx(\''+fid+'\')">➕ Outro adiantamento</button></div>';
+  return h;
+}
+function addPlanoEx(fid){ PLEX_REF.child(isoDate(currentWeekStart)).child(fid).push({valor:0, data:''}); }
+function _plexCur(fid,k){ return (((planoExData[isoDate(currentWeekStart)]||{})[fid])||{})[k]||null; }
+function salvarPlanoEx(fid,k){
+  const cur = _plexCur(fid,k);
+  if(cur && cur.pago && cur.turnoId && turnosData[cur.turnoId]){ toast('Desfaça o ✓ antes de alterar'); return; }
+  const v = parseFloat(document.getElementById('plx-v-'+k).value);
+  const d = document.getElementById('plx-d-'+k).value;
+  const ref = PLEX_REF.child(isoDate(currentWeekStart)).child(fid).child(k);
+  if(!v || v<=0){ ref.remove(); toast('Adiantamento removido'); return; }
+  ref.update({valor:v, data:d||''}); toast('✅ Salvo');
+}
+function removerPlanoEx(fid,k){
+  const cur = _plexCur(fid,k); const ref = PLEX_REF.child(isoDate(currentWeekStart)).child(fid).child(k);
+  if(cur && cur.pago && cur.turnoId){
+    if(!confirm('Remover? O adiantamento já lançado na folha também será removido.')) return;
+    TN_REF.child(cur.turnoId).remove();
+  }
+  ref.remove(); toast('Adiantamento removido');
+}
+function confirmarPlanoEx(fid,k){
+  const f = freelancersData[fid]; if(!f) return;
+  const cur = _plexCur(fid,k); const ref = PLEX_REF.child(isoDate(currentWeekStart)).child(fid).child(k);
+  if(cur && cur.pago && cur.turnoId){
+    if(!confirm('Desfazer a confirmação? O adiantamento de '+brl(cur.valor)+' será removido da folha de '+f.nome+'.')) return;
+    TN_REF.child(cur.turnoId).remove(); ref.update({pago:null, turnoId:null, pagoEm:null});
+    toast('↩️ Adiantamento removido da folha'); return;
+  }
+  if(!cur || !(cur.valor>0)){ toast('⚠️ Salve o valor primeiro'); return; }
+  const iv = parseFloat(document.getElementById('plx-v-'+k).value);
+  if(iv !== cur.valor){ toast('⚠️ Valor alterado — clique em Salvar antes de confirmar'); return; }
+  if(!confirm('Confirmar que o financeiro transferiu '+brl(cur.valor)+' para '+f.nome+'?\nIsso lança o adiantamento na folha da semana.')) return;
+  const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
+  const ini = isoDate(currentWeekStart), fim = isoDate(weekEnd);
+  const dataLanc = (cur.data && cur.data>=ini && cur.data<=fim) ? cur.data : fim;
+  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:'Adiantamento via Pix (plano de pagamento) · transferido em '+fmtDataHoraBR(Date.now()), criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-cur.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano', planoKey:k});
+  ref.update({pago:true, turnoId:novo.key, pagoEm:Date.now()});
+  toast('✅ Adiantamento lançado na folha');
 }
 
 // ---- RECIBOS ----

@@ -271,6 +271,7 @@ if('serviceWorker' in navigator){
     <div class="rs" id="home-role-info" style="margin:-6px 0 2px"></div>
     <button class="btn-or" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
     <button class="btn-excel-home gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
+    <button class="btn-excel-home gerente-only" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
     <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
@@ -443,6 +444,7 @@ if('serviceWorker' in navigator){
           <input id="tn-fixo-data-input" type="date" style="flex:1">
           <button type="button" class="btn-add-data" onclick="adicionarDataFixo()">+</button>
         </div>
+        <button type="button" class="btn-sm gerente-only" style="width:100%;margin-bottom:10px" onclick="adicionarSemanaFixo()">📅 Adicionar a semana inteira (seg–dom)</button>
         <div id="tn-datas-fixo-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
       </div>
       <label class="fl">Forma de pagamento</label>
@@ -637,6 +639,7 @@ if('serviceWorker' in navigator){
   <button class="side-it" data-s="s-home" onclick="goTo('s-home')"><i class="ti ti-home"></i> Início</button>
   <button class="side-it" data-s="s-turno" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
   <button class="side-it gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
+  <button class="side-it gerente-only" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
   <button class="side-it" data-s="s-freelancers" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
   <button class="side-it gerente-only" data-s="s-fechamento" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
   <button class="side-it gerente-only" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
@@ -1048,6 +1051,25 @@ function abrirLancamento(){
   toggleIntervaloTurno();
   document.getElementById('tn-del-btn').style.display='none';
   goTo('s-turno');
+}
+function adicionarSemanaFixo(){
+  const v = document.getElementById('tn-fixo-data-input').value || isoDate(new Date());
+  const seg = getMonday(new Date(v+'T00:00:00'));
+  for(let i=0;i<7;i++){
+    const d = new Date(seg); d.setDate(seg.getDate()+i);
+    const s = isoDate(d);
+    if(!turnoDatasFixo.includes(s)) turnoDatasFixo.push(s);
+  }
+  turnoDatasFixo.sort();
+  renderDatasFixo();
+  toast('📅 Semana de '+isoParaBR(isoDate(seg))+' adicionada (7 dias) — informe o valor de cada dia');
+}
+function abrirLancamentoSemana(){
+  abrirLancamento();
+  document.getElementById('tn-titulo').textContent='Lançar semana (seg–dom)';
+  tipoPagamentoChange('fixo');
+  document.getElementById('tn-obs').value='Salário base semanal';
+  adicionarSemanaFixo();
 }
 function abrirLancamentoAdiantamento(){
   abrirLancamento();

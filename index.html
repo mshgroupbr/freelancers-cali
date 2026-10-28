@@ -536,15 +536,41 @@ if('serviceWorker' in navigator){
     <div class="htxt"><h1>Histórico</h1><p>Por freelancer</p></div>
   </div>
   <div class="pad">
+    <div class="card gerente-only" style="padding:10px 12px">
+      <div class="seg-row" style="margin:0">
+        <div class="seg ativo" id="hist-tab-f" onclick="histTab('f')">Por freelancer</div>
+        <div class="seg" id="hist-tab-a" onclick="histTab('a')">📊 Análise de recebimentos</div>
+      </div>
+    </div>
+    <div id="hist-sec-freelancer">
     <div class="card">
       <label class="fl">Freelancer</label>
       <select id="hist-freelancer" onchange="renderHistorico()"></select>
+      <label class="fl" style="margin-top:10px">Mês (opcional — vazio mostra tudo)</label>
+      <input id="hist-mes" type="month" onchange="renderHistorico()" style="margin:0">
     </div>
     <div class="card">
       <div id="hist-list"></div>
       <div class="dr" style="border-top:1px solid var(--bdr2);margin-top:6px;padding-top:10px">
         <div class="dk" style="font-weight:700" id="hist-total"></div>
       </div>
+    </div>
+    </div>
+    <div id="hist-sec-analise" style="display:none">
+      <div class="card">
+        <div class="seg-row" style="margin-bottom:10px">
+          <div class="seg ativo" id="ana-m-sem" onclick="anaModo('sem')">Semanas do mês</div>
+          <div class="seg" id="ana-m-mes" onclick="anaModo('mes')">Mês a mês (6 meses)</div>
+        </div>
+        <label class="fl">Mês de referência</label>
+        <input id="ana-mes" type="month" onchange="renderAnalise()" style="margin-bottom:10px">
+        <label class="fl">Setor</label>
+        <select id="ana-setor" onchange="renderAnalise()" style="margin-bottom:10px"><option value="">Todos os setores</option></select>
+        <input id="ana-busca" type="search" placeholder="🔎 Filtrar pelo nome..." oninput="renderAnalise()" autocomplete="off" style="margin:0">
+      </div>
+      <div id="ana-kpis"></div>
+      <div class="card" style="overflow-x:auto;padding:10px"><div id="ana-tabela"></div></div>
+      <p style="font-size:11.5px;color:var(--tx2,#8a8378);padding:0 4px">Ganho = turnos trabalhados + ajustes (bônus, taxa de serviço, horas extras). Adiantado = adiantamentos lançados. A pagar = ganho − adiantado. Toque no nome para abrir o histórico da pessoa.</p>
     </div>
   </div>
 </div>
@@ -1776,7 +1802,8 @@ function renderHistorico(){
   const totalEl = document.getElementById('hist-total');
   if(!fid){ el.innerHTML='<div class="empty"><i class="ti ti-history"></i>Selecione um freelancer</div>'; totalEl.textContent=''; return; }
   const f = freelancersData[fid];
-  const arr = Object.entries(turnosData).filter(([id,t])=>t.freelancerId===fid).map(([id,t])=>({id,...t})).sort((a,b)=>b.data.localeCompare(a.data));
+  const mesF = (document.getElementById('hist-mes')||{}).value || '';
+  const arr = Object.entries(turnosData).filter(([id,t])=>t.freelancerId===fid && (!mesF || (t.data||'').slice(0,7)===mesF)).map(([id,t])=>({id,...t})).sort((a,b)=>b.data.localeCompare(a.data));
   let total=0;
   el.innerHTML = arr.map(t=>{
     const tot = totalDiaTurno(t,f); total+=tot;
@@ -1784,7 +1811,7 @@ function renderHistorico(){
     const detalhe = t.tipo==='adiantamento' ? advTxt(t) : t.tipo==='ajuste' ? ajTxt(t) : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
     return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${dataExibTurno(t)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
   }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
-  totalEl.textContent = arr.length ? ('Total acumulado: '+brl(total)) : '';
+  totalEl.textContent = arr.length ? ((mesF?'Total do mês: ':'Total acumulado: ')+brl(total)) : '';
 }
 
 // ---- EQUIPE DO SETOR: resumo semanal (somente dias e horas, sem valores) ----
@@ -2466,6 +2493,93 @@ function removerLider(id){
   LIDERES_REF.child(id).remove();
   toast('🗑️ Acesso removido');
   renderAcessos();
+}
+
+// ---- HISTÓRICO: análise de recebimentos por semana e por mês ----
+var anaModoAtual = 'sem';
+function histTab(m){
+  document.getElementById('hist-sec-freelancer').style.display = m==='f' ? 'block' : 'none';
+  document.getElementById('hist-sec-analise').style.display = m==='a' ? 'block' : 'none';
+  document.getElementById('hist-tab-f').classList.toggle('ativo', m==='f');
+  document.getElementById('hist-tab-a').classList.toggle('ativo', m==='a');
+  if(m==='a') renderAnalise();
+}
+function anaModo(m){
+  anaModoAtual = m;
+  document.getElementById('ana-m-sem').classList.toggle('ativo', m==='sem');
+  document.getElementById('ana-m-mes').classList.toggle('ativo', m==='mes');
+  renderAnalise();
+}
+function anaHistFree(id){
+  histTab('f');
+  const sel = document.getElementById('hist-freelancer'); if(sel){ sel.value = id; }
+  renderHistorico();
+}
+function anaPeriodos(mesIso, modo){
+  const [y,m] = mesIso.split('-').map(Number);
+  const out = [];
+  if(modo==='mes'){
+    for(let k=5;k>=0;k--){
+      const d0 = new Date(y, m-1-k, 1), d1 = new Date(y, m-k, 0);
+      out.push({ini:isoDate(d0), fim:isoDate(d1), label:String(d0.getMonth()+1).padStart(2,'0')+'/'+String(d0.getFullYear()).slice(2)});
+    }
+    return out;
+  }
+  const mIni = new Date(y, m-1, 1), mFim = new Date(y, m, 0);
+  let seg = getMonday(mIni);
+  while(seg <= mFim){
+    const dom = new Date(seg); dom.setDate(dom.getDate()+6);
+    const ini = seg < mIni ? mIni : seg, fim = dom > mFim ? mFim : dom;
+    out.push({ini:isoDate(ini), fim:isoDate(fim), label:fmtDataBR(ini)+'–'+fmtDataBR(fim)});
+    seg = new Date(seg); seg.setDate(seg.getDate()+7);
+  }
+  return out;
+}
+function renderAnalise(){
+  const mesEl = document.getElementById('ana-mes'); if(!mesEl) return;
+  if(!mesEl.value) mesEl.value = isoDate(new Date()).slice(0,7);
+  const frs = freelancersDaUnidade();
+  const setorSel = document.getElementById('ana-setor');
+  const setorAtual = setorSel.value;
+  const setores = Array.from(new Set(Object.values(frs).map(f=>f.setor).filter(Boolean))).sort();
+  setorSel.innerHTML = '<option value="">Todos os setores</option>' + setores.map(s=>'<option value="'+s+'">'+s+'</option>').join('');
+  setorSel.value = setores.indexOf(setorAtual)>=0 ? setorAtual : '';
+  const busca = (document.getElementById('ana-busca').value||'').toLowerCase().trim();
+  const periodos = anaPeriodos(mesEl.value, anaModoAtual);
+  const ini0 = periodos[0].ini, fim0 = periodos[periodos.length-1].fim;
+  const u = getUnidadeAtual();
+  const linhas = {};
+  Object.entries(turnosData).forEach(function(par){
+    const t = par[1];
+    if(!t.data || t.data<ini0 || t.data>fim0) return;
+    if((t.unidade||'Cali Cravings')!==u) return;
+    const f = frs[t.freelancerId]; if(!f) return;
+    if(setorSel.value && f.setor!==setorSel.value) return;
+    if(busca && (f.nome||'').toLowerCase().indexOf(busca)<0) return;
+    const L = linhas[t.freelancerId] || (linhas[t.freelancerId] = {id:t.freelancerId, nome:f.nome, setor:f.setor||'', cel:periodos.map(()=>0), ganho:0, adiant:0});
+    const tot = totalDiaTurno(t,f);
+    const idx = periodos.findIndex(p=>t.data>=p.ini && t.data<=p.fim); if(idx<0) return;
+    if(t.tipo==='adiantamento'){ L.adiant += -tot; }
+    else { L.cel[idx] += tot; L.ganho += tot; }
+  });
+  const arr = Object.values(linhas).filter(L=>L.ganho!==0 || L.adiant!==0).sort((a,b)=>b.ganho-a.ganho);
+  const totGanho = arr.reduce((s,L)=>s+L.ganho,0), totAd = arr.reduce((s,L)=>s+L.adiant,0);
+  const k = (rot,val,cor)=>'<div class="card" style="margin-bottom:8px;padding:10px 12px"><div class="dr" style="border:none;padding:0"><div class="dk">'+rot+'</div><div class="dv" style="font-weight:700;'+(cor?'color:'+cor:'')+'">'+val+'</div></div></div>';
+  const top = arr[0];
+  document.getElementById('ana-kpis').innerHTML =
+    k('Total ganho no período', brl(totGanho)) + k('Adiantado', brl(totAd), '#c0392b') + k('A pagar (ganho − adiantado)', brl(totGanho-totAd), '#1d9e75') +
+    k('Colaboradores com lançamento', String(arr.length)) + k('Média de ganho por colaborador', brl(arr.length?totGanho/arr.length:0)) + (top ? k('Maior ganho', top.nome+' · '+brl(top.ganho)) : '');
+  if(!arr.length){ document.getElementById('ana-tabela').innerHTML = '<div class="empty"><i class="ti ti-chart-bar"></i>Sem lançamentos nesse período</div>'; return; }
+  const th = 'style="padding:6px 8px;font-size:11.5px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--bdr2,#ddd)"';
+  const td = 'style="padding:6px 8px;font-size:12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--bdr2,#eee)"';
+  const tdn = 'style="padding:6px 8px;font-size:12.5px;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--bdr2,#eee);position:sticky;left:0;background:#fff;cursor:pointer"';
+  let h = '<table style="border-collapse:collapse;width:100%"><thead><tr><th '+th.replace('text-align:right','text-align:left')+'>Colaborador</th>'+periodos.map(p=>'<th '+th+'>'+p.label+'</th>').join('')+'<th '+th+'>Total ganho</th><th '+th+'>Adiantado</th><th '+th+'>A pagar</th></tr></thead><tbody>';
+  arr.forEach(function(L){
+    h += '<tr><td '+tdn+' onclick="anaHistFree(\''+L.id+'\')">'+L.nome+(L.setor?'<div style="font-size:10.5px;font-weight:400;opacity:.65">'+L.setor+'</div>':'')+'</td>'+L.cel.map(v=>'<td '+td+'>'+(v?brl(v):'—')+'</td>').join('')+'<td '+td+'><b>'+brl(L.ganho)+'</b></td><td '+td+' ><span style="color:#c0392b">'+(L.adiant?brl(L.adiant):'—')+'</span></td><td '+td+'><b style="color:#1d9e75">'+brl(L.ganho-L.adiant)+'</b></td></tr>';
+  });
+  const somaPer = periodos.map((p,i)=>arr.reduce((s,L)=>s+L.cel[i],0));
+  h += '</tbody><tfoot><tr><td '+tdn+'>TOTAL</td>'+somaPer.map(v=>'<td '+td+'><b>'+brl(v)+'</b></td>').join('')+'<td '+td+'><b>'+brl(totGanho)+'</b></td><td '+td+'><b>'+brl(totAd)+'</b></td><td '+td+'><b>'+brl(totGanho-totAd)+'</b></td></tr></tfoot></table>';
+  document.getElementById('ana-tabela').innerHTML = h;
 }
 </script>
 </body>

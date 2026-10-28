@@ -545,14 +545,15 @@ if('serviceWorker' in navigator){
     <div id="hist-sec-freelancer">
     <div class="card">
       <label class="fl">Freelancer</label>
-      <select id="hist-freelancer" onchange="renderHistorico()"></select>
+      <select id="hist-freelancer"></select>
       <label class="fl" style="margin-top:10px">Mês (opcional — vazio mostra tudo)</label>
-      <input id="hist-mes" type="month" onchange="renderHistorico()" style="margin:0">
+      <input id="hist-mes" type="month" style="margin:0">
       <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end">
-        <div style="flex:1"><label class="fl">De (data)</label><input id="hist-de" type="date" onchange="renderHistorico()" style="margin:0"></div>
-        <div style="flex:1"><label class="fl">Até (data)</label><input id="hist-ate" type="date" onchange="renderHistorico()" style="margin:0"></div>
+        <div style="flex:1"><label class="fl">De (data)</label><input id="hist-de" type="date" style="margin:0"></div>
+        <div style="flex:1"><label class="fl">Até (data)</label><input id="hist-ate" type="date" style="margin:0"></div>
         <button class="btn-sm" onclick="document.getElementById('hist-de').value='';document.getElementById('hist-ate').value='';document.getElementById('hist-mes').value='';renderHistorico()" style="height:42px">Limpar</button>
       </div>
+      <button class="btn-pri" onclick="renderHistorico()" style="width:100%;margin-top:12px;padding:12px;font-weight:700;border:0;border-radius:10px;background:#7a1d1d;color:#fff;font-size:15px;cursor:pointer">🔎 Pesquisar</button>
     </div>
     <div class="card">
       <div id="hist-list"></div>
@@ -1810,7 +1811,7 @@ function renderHistorico(){
   const fid = selEl.value;
   const el = document.getElementById('hist-list');
   const totalEl = document.getElementById('hist-total');
-  if(!fid){ el.innerHTML='<div class="empty"><i class="ti ti-history"></i>Selecione um freelancer</div>'; totalEl.textContent=''; return; }
+  if(!fid){ el.innerHTML='<div class="empty"><i class="ti ti-history"></i>Selecione um freelancer e toque em Pesquisar</div>'; totalEl.textContent=''; return; }
   const f = freelancersData[fid];
   const mesF = (document.getElementById('hist-mes')||{}).value || '';
   const deF = (document.getElementById('hist-de')||{}).value || '', ateF = (document.getElementById('hist-ate')||{}).value || '';

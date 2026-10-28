@@ -548,6 +548,11 @@ if('serviceWorker' in navigator){
       <select id="hist-freelancer" onchange="renderHistorico()"></select>
       <label class="fl" style="margin-top:10px">Mês (opcional — vazio mostra tudo)</label>
       <input id="hist-mes" type="month" onchange="renderHistorico()" style="margin:0">
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end">
+        <div style="flex:1"><label class="fl">De (data)</label><input id="hist-de" type="date" onchange="renderHistorico()" style="margin:0"></div>
+        <div style="flex:1"><label class="fl">Até (data)</label><input id="hist-ate" type="date" onchange="renderHistorico()" style="margin:0"></div>
+        <button class="btn-sm" onclick="document.getElementById('hist-de').value='';document.getElementById('hist-ate').value='';document.getElementById('hist-mes').value='';renderHistorico()" style="height:42px">Limpar</button>
+      </div>
     </div>
     <div class="card">
       <div id="hist-list"></div>
@@ -1808,15 +1813,20 @@ function renderHistorico(){
   if(!fid){ el.innerHTML='<div class="empty"><i class="ti ti-history"></i>Selecione um freelancer</div>'; totalEl.textContent=''; return; }
   const f = freelancersData[fid];
   const mesF = (document.getElementById('hist-mes')||{}).value || '';
-  const arr = Object.entries(turnosData).filter(([id,t])=>t.freelancerId===fid && (!mesF || (t.data||'').slice(0,7)===mesF)).map(([id,t])=>({id,...t})).sort((a,b)=>b.data.localeCompare(a.data));
-  let total=0;
+  const deF = (document.getElementById('hist-de')||{}).value || '', ateF = (document.getElementById('hist-ate')||{}).value || '';
+  const arr = Object.entries(turnosData).filter(([id,t])=>t.freelancerId===fid && (!mesF || (t.data||'').slice(0,7)===mesF) && (!deF || (t.data||'')>=deF) && (!ateF || (t.data||'')<=ateF)).map(([id,t])=>({id,...t})).sort((a,b)=>b.data.localeCompare(a.data));
+  let total=0, recebido=0, vales=0;
   el.innerHTML = arr.map(t=>{
-    const tot = totalDiaTurno(t,f); total+=tot;
+    const tot = totalDiaTurno(t,f); total+=tot; if(t.tipo==='adiantamento') vales+=-tot; else recebido+=tot;
     const intervaloTxt = (t.intervaloInicio && t.intervaloFim) ? (' · intervalo '+t.intervaloInicio+'-'+t.intervaloFim+(t.intervaloDesconta?' (descontado)':' (não descontado)')) : '';
     const detalhe = t.tipo==='adiantamento' ? advTxt(t) : t.tipo==='ajuste' ? ajTxt(t) : (t.valorFixoDia ? ('Valor fixo: '+brl(t.valorFixoDia)) : ((t.entrada||'')+' - '+(t.saida||'')+' ('+horasComIntervalo(t).toFixed(2)+'h)'+intervaloTxt));
     return `<div class="dr" style="cursor:pointer" onclick="abrirEdicaoRapida('${t.id}','s-historico')"><div class="dk">${dataExibTurno(t)} · ${detalhe}</div><div class="dv"${tot<0?' style="color:#c0392b"':''}>${brl(tot)}</div></div>`;
   }).join('') || '<div class="empty"><i class="ti ti-history"></i>Nenhum lançamento</div>';
-  totalEl.textContent = arr.length ? ((mesF?'Total do mês: ':'Total acumulado: ')+brl(total)) : '';
+  const perTxt = (deF||ateF) ? 'no período' : (mesF ? 'no mês' : 'acumulado');
+  totalEl.style.width='100%';
+  totalEl.innerHTML = arr.length ? ('<div class="dr" style="border:none;padding:2px 0"><div class="dk" style="font-weight:700">Total recebido '+perTxt+' (sem vales)</div><div class="dv" style="font-weight:700;color:#1d9e75">'+brl(recebido)+'</div></div>'
+    +'<div class="dr" style="border:none;padding:2px 0"><div class="dk">Vales / adiantamentos</div><div class="dv" style="color:#c0392b">'+(vales?'-':'')+brl(vales)+'</div></div>'
+    +'<div class="dr" style="border:none;padding:2px 0"><div class="dk">Saldo (recebido − vales)</div><div class="dv">'+brl(total)+'</div></div>') : '';
 }
 
 // ---- EQUIPE DO SETOR: resumo semanal (somente dias e horas, sem valores) ----

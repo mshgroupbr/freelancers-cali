@@ -375,6 +375,12 @@ if('serviceWorker' in navigator){
     </div>
     <div id="ab-resumo"></div>
     <button class="btn-pdf" onclick="gerarPdfEmAberto()"><i class="ti ti-file-type-pdf"></i> Gerar PDF dos valores em aberto</button>
+    <div class="card" style="margin-top:12px">
+      <label class="fl">Observação para os proprietários (opcional)</label>
+      <textarea id="ab-obs" rows="4" placeholder="Ex.: motivo do atraso, previsão de pagamento, combinados da semana..." style="width:100%;box-sizing:border-box;margin-bottom:12px;border-radius:10px;padding:10px;font-family:inherit;font-size:14px"></textarea>
+      <button class="btn-or" onclick="gerarRelatorioDetalhadoAberto()"><i class="ti ti-report"></i> Gerar relatório detalhado dos em aberto</button>
+      <div style="font-size:11.5px;opacity:.7;margin-top:8px">Relatório em PDF com cada freelancer: dias trabalhados, ajustes, adiantamentos, pagamentos e saldo, mais a sua observação. Respeita a semana e a unidade escolhidas acima.</div>
+    </div>
   </div>
 </div>
 
@@ -2387,6 +2393,109 @@ function renderEmAberto(){
     }).join('') + '</div>';
   }
   document.getElementById('ab-resumo').innerHTML = h;
+}
+function gerarRelatorioDetalhadoAberto(){
+  if(currentRole==='lider'){ return; }
+  const sel = document.getElementById('ab-sem'); if(!sel || !sel.value){ toast('⚠️ Abra a tela e escolha a semana'); return; }
+  const wk = sel.value, un = document.getElementById('ab-un').value;
+  const obs = ((document.getElementById('ab-obs')||{}).value||'').trim();
+  const todos = abAgrupar(un);
+  const sem = todos.filter(function(o){ return o.mon === wk; });
+  const abertos = sem.filter(function(o){ return o.saldo > 0.005; }).sort(function(a,b){ return b.saldo - a.saldo; });
+  const ant = {};
+  todos.forEach(function(o){ if(o.mon < wk && o.saldo > 0.005){ const a = ant[o.mon] || (ant[o.mon] = {total:0, n:0}); a.total += o.saldo; a.n += 1; } });
+  const antKeys = Object.keys(ant).sort().reverse();
+  if(!abertos.length && !antKeys.length){ toast('✅ Nada em aberto para gerar'); return; }
+  const L = function(s){ return String(s==null?'':s).replace(/[^\u0000-\u00FF]/g,'').replace(/\s+/g,' ').trim(); };
+  const jsPDF = window.jspdf.jsPDF;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const venc = new Date(wk+'T00:00:00'); venc.setDate(venc.getDate()+9);
+  const atrasado = isoDate(new Date()) > isoDate(venc);
+  const totAberto = abertos.reduce(function(s,o){ return s+o.saldo; }, 0);
+  const totBruto = sem.reduce(function(s,o){ return s+o.bruto; }, 0);
+  const totAdiant = sem.reduce(function(s,o){ return s+o.adiant; }, 0);
+  const totPago = sem.reduce(function(s,o){ return s+o.pago; }, 0);
+  const W = 595, M = 30; let y = 42;
+  const novaPag = function(h){ if(y + h > 800){ doc.addPage(); y = 42; } };
+  doc.setFont(undefined,'bold'); doc.setFontSize(15); doc.setTextColor(31,56,100);
+  doc.text('MASHA GROUP - RELATORIO DE FREELANCERS EM ABERTO', M, y); y += 18;
+  doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(60,60,60);
+  doc.text('Semana trabalhada: '+relSemanaLabel(wk)+'   |   Unidade: '+(un||'Cali + Texas (geral)'), M, y); y += 14;
+  doc.text('Vencimento: quarta-feira, '+fmtDataBR(venc)+(atrasado && abertos.length ? ' (atrasado)' : '')+'   |   Gerado em '+new Date().toLocaleString('pt-BR'), M, y); y += 16;
+  doc.autoTable({
+    startY: y, theme:'grid',
+    head:[['Total da semana','Adiantado','Pago na quarta','Em aberto','Freelancers a pagar']],
+    body:[[brl(totBruto), '-'+brl(totAdiant), '-'+brl(totPago), brl(totAberto), String(abertos.length)]],
+    styles:{fontSize:10, halign:'center', font:'helvetica', cellPadding:5}, headStyles:{fillColor:[31,56,100], textColor:255, fontSize:8},
+    columnStyles:{3:{fontStyle:'bold', textColor:[163,45,45]}}, margin:{left:M, right:M}
+  });
+  y = doc.lastAutoTable.finalY + 14;
+  if(obs){
+    const lines = doc.splitTextToSize(L(obs).length ? obs.replace(/[^\u0000-\u00FF\n]/g,'') : '', W-2*M-16);
+    const h = 26 + lines.length*12;
+    novaPag(h);
+    doc.setFillColor(255,248,225); doc.setDrawColor(230,200,120); doc.roundedRect(M, y, W-2*M, h, 4, 4, 'FD');
+    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.setTextColor(122,59,10); doc.text('Observacao', M+8, y+15);
+    doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(50,50,50); doc.text(lines, M+8, y+29);
+    y += h + 14;
+  }
+  const dets = function(o){
+    const arr = Object.keys(turnosData).map(function(id){ return turnosData[id]; }).filter(function(tn){
+      if(!tn || !tn.data || tn.freelancerId !== o.fid) return false;
+      const f = freelancersData[tn.freelancerId];
+      const unidade = tn.unidade || (f && f.unidade) || 'Cali Cravings';
+      return unidade === o.unidade && isoDate(getMonday(new Date(tn.data+'T00:00:00'))) === wk;
+    }).sort(function(a,b){ return ((a.tipo==='adiantamento')-(b.tipo==='adiantamento')) || a.data.localeCompare(b.data); });
+    return arr.map(function(tn){
+      const f = freelancersData[tn.freelancerId];
+      const v = totalDiaTurno(tn, f) || 0;
+      let d;
+      if(tn.tipo==='adiantamento') d = 'Adiantamento' + ((tn.origem==='plano'&&tn.criadoEm) ? ' (Pix em '+new Date(tn.criadoEm).toLocaleDateString('pt-BR')+')' : '');
+      else if(tn.tipo==='ajuste') d = ajTxt(tn);
+      else if(tn.valorFixoDia && !tn.entrada) d = 'Diaria (valor fixo)';
+      else d = (tn.entrada||'')+' - '+(tn.saida||'')+' ('+horasComIntervalo(tn).toFixed(2)+'h)';
+      return [isoParaBR(tn.data), diaSemanaCurto(tn.data), L(d), (v<0?'-':'')+brl(Math.abs(v))];
+    });
+  };
+  const diaSemanaCurto = function(iso){ return ['dom','seg','ter','qua','qui','sex','sab'][new Date(iso+'T00:00:00').getDay()]; };
+  abertos.forEach(function(o){
+    const f = freelancersData[o.fid] || {};
+    const rows = dets(o);
+    o.pags.forEach(function(p){ rows.push([p.data?isoParaBR(p.data):'-','', 'Pagamento parcial', '-'+brl(p.valor)]); });
+    novaPag(70);
+    doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+    doc.text(L(f.nome||'(removido)')+(f.funcao?' - '+L(f.funcao):'')+(un?'':' ('+(o.unidade==='Texas Country Bar'?'Texas':'Cali')+')'), M, y);
+    doc.setTextColor(163,45,45); doc.text('Saldo '+brl(o.saldo), W-M, y, {align:'right'}); y += 12;
+    doc.setFont(undefined,'normal'); doc.setFontSize(9); doc.setTextColor(90,90,90);
+    doc.text('Pix: '+(f.pix?L(f.pix):'(sem chave cadastrada)')+'   |   Dias trabalhados: '+o.dias, M, y); y += 4;
+    doc.autoTable({
+      startY: y+2, theme:'striped',
+      head:[['Data','Dia','Descricao','Valor']], body: rows,
+      foot:[[{content:'Diarias/ajustes '+brl(o.bruto)+'  |  Adiantado -'+brl(o.adiant)+'  |  Pago -'+brl(o.pago)+'  |  A pagar '+brl(o.saldo), colSpan:4, styles:{halign:'right'}}]], showFoot:'lastPage',
+      styles:{fontSize:8, font:'helvetica', cellPadding:2.5}, headStyles:{fillColor:[90,110,150], textColor:255},
+      footStyles:{fillColor:[252,228,214], textColor:[122,59,10], fontStyle:'bold'},
+      columnStyles:{0:{cellWidth:60},1:{cellWidth:34},3:{halign:'right', cellWidth:80}}, margin:{left:M, right:M}
+    });
+    y = doc.lastAutoTable.finalY + 16;
+  });
+  if(antKeys.length){
+    novaPag(90);
+    const totAnt = antKeys.reduce(function(s,k){ return s+ant[k].total; }, 0);
+    doc.setFont(undefined,'bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+    doc.text('Semanas anteriores ainda em aberto - '+brl(totAnt), M, y); y += 4;
+    doc.autoTable({
+      startY: y+4, head:[['Semana','Freelancers','Em aberto']],
+      body: antKeys.map(function(k){ return [relSemanaLabel(k), String(ant[k].n), brl(ant[k].total)]; }),
+      foot:[['TOTAL','',brl(totAnt)]], showFoot:'lastPage',
+      styles:{fontSize:9, font:'helvetica'}, headStyles:{fillColor:[31,56,100], textColor:255},
+      footStyles:{fillColor:[252,228,214], textColor:[122,59,10], fontStyle:'bold'},
+      columnStyles:{1:{halign:'right'},2:{halign:'right'}}, margin:{left:M, right:M}
+    });
+  }
+  const pages = doc.getNumberOfPages();
+  for(let p=1;p<=pages;p++){ doc.setPage(p); doc.setFontSize(8); doc.setTextColor(120,120,120); doc.text('Pagina '+p+' de '+pages, 520, 820); }
+  doc.save('Relatorio_em_aberto_'+wk+(un?('_'+(un==='Texas Country Bar'?'Texas':'Cali')):'')+'.pdf');
+  toast('📄 Relatório gerado');
 }
 function gerarPdfEmAberto(){
   if(currentRole==='lider'){ return; }

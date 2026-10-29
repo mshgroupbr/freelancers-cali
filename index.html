@@ -376,10 +376,8 @@ if('serviceWorker' in navigator){
     <div id="ab-resumo"></div>
     <button class="btn-pdf" onclick="gerarPdfEmAberto()"><i class="ti ti-file-type-pdf"></i> Gerar PDF dos valores em aberto</button>
     <div class="card" style="margin-top:12px">
-      <label class="fl">Observação para os proprietários (opcional)</label>
-      <textarea id="ab-obs" rows="4" placeholder="Ex.: motivo do atraso, previsão de pagamento, combinados da semana..." style="width:100%;box-sizing:border-box;margin-bottom:12px;border-radius:10px;padding:10px;font-family:inherit;font-size:14px"></textarea>
       <button class="btn-or" onclick="gerarRelatorioDetalhadoAberto()"><i class="ti ti-report"></i> Gerar relatório detalhado dos em aberto</button>
-      <div style="font-size:11.5px;opacity:.7;margin-top:8px">Relatório em PDF com cada freelancer: dias trabalhados, ajustes, adiantamentos, pagamentos e saldo, mais a sua observação. Respeita a semana e a unidade escolhidas acima.</div>
+      <div style="font-size:11.5px;opacity:.7;margin-top:8px">Relatório em PDF com cada freelancer: dias trabalhados, ajustes, adiantamentos, pagamentos, saldo e a observação de cada colaborador (campo 📝 em cada card acima). Respeita a semana e a unidade escolhidas.</div>
     </div>
   </div>
 </div>
@@ -2260,6 +2258,23 @@ function abIniciar(){
     const el = document.getElementById('s-aberto');
     if(el && el.classList.contains('active')) renderEmAberto();
   });
+  db.ref('obsAberto').on('value', function(s){
+    const primeira = (obsAbertoData === null);
+    obsAbertoData = s.val() || {};
+    const el = document.getElementById('s-aberto');
+    if(primeira && el && el.classList.contains('active')) renderEmAberto();
+  });
+}
+let obsAbertoData = null;
+function abObsKey(fid, unidade){ return fid+'_'+(unidade==='Texas Country Bar'?'T':'C'); }
+function abObsDe(wk, fid, unidade){ const w = (obsAbertoData||{})[wk]; const o = w && w[abObsKey(fid, unidade)]; return o ? (o.t||'') : ''; }
+function abSalvarObs(inp){
+  const wk = inp.dataset.wk, key = inp.dataset.k, txt = inp.value.trim();
+  const ref = db.ref('obsAberto/'+wk+'/'+key);
+  obsAbertoData = obsAbertoData || {};
+  obsAbertoData[wk] = obsAbertoData[wk] || {};
+  if(txt){ obsAbertoData[wk][key] = {t:txt, em:Date.now()}; ref.set({t:txt, em:Date.now()}); toast('📝 Observação salva'); }
+  else { delete obsAbertoData[wk][key]; ref.remove(); }
 }
 function abAgrupar(un){
   const M = {};
@@ -2371,6 +2386,7 @@ function renderEmAberto(){
         '<div class="ab-top"><div class="ab-nm">'+relEsc(nomeDe(o))+'<small>'+relEsc((f.funcao||'')+unTag(o))+'</small></div><div class="ab-sd">'+brl(o.saldo)+'</div></div>' +
         '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto-o.aj)+(o.aj ? ' + ajustes '+brl(o.aj) : '')+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +
         (o.pago ? '<div class="ab-ln"><span>Pago parcial: '+brl(o.pago)+desf(o)+'</span><span></span></div>' : '') +
+        '<div style="margin-top:8px"><input type="text" maxlength="300" data-wk="'+wk+'" data-k="'+abObsKey(o.fid,o.unidade)+'" value="'+relEsc(abObsDe(wk,o.fid,o.unidade))+'" placeholder="📝 Observação sobre este colaborador (opcional)" onchange="abSalvarObs(this)" style="width:100%;box-sizing:border-box;margin:0;font-size:13px;padding:8px 10px"></div>' +
         '<div class="ab-pix">'+(pix ? '<span>Pix: <b>'+relEsc(pix)+'</b></span><button data-pix="'+relEsc(pix)+'" onclick="copiarPix(this.dataset.pix)"><i class="ti ti-copy"></i> copiar</button>' : '<span style="color:#c0392b">sem chave Pix cadastrada</span>')+
         '<button class="ab-pagar" data-wk="'+wk+'" data-fid="'+o.fid+'" data-un="'+relEsc(o.unidade)+'" data-saldo="'+o.saldo.toFixed(2)+'" onclick="abPagar(this)"><i class="ti ti-cash"></i> PAGAR</button></div>' +
         '</div>';
@@ -2398,7 +2414,6 @@ function gerarRelatorioDetalhadoAberto(){
   if(currentRole==='lider'){ return; }
   const sel = document.getElementById('ab-sem'); if(!sel || !sel.value){ toast('⚠️ Abra a tela e escolha a semana'); return; }
   const wk = sel.value, un = document.getElementById('ab-un').value;
-  const obs = ((document.getElementById('ab-obs')||{}).value||'').trim();
   const todos = abAgrupar(un);
   const sem = todos.filter(function(o){ return o.mon === wk; });
   const abertos = sem.filter(function(o){ return o.saldo > 0.005; }).sort(function(a,b){ return b.saldo - a.saldo; });
@@ -2430,15 +2445,6 @@ function gerarRelatorioDetalhadoAberto(){
     columnStyles:{3:{fontStyle:'bold', textColor:[163,45,45]}}, margin:{left:M, right:M}
   });
   y = doc.lastAutoTable.finalY + 14;
-  if(obs){
-    const lines = doc.splitTextToSize(L(obs).length ? obs.replace(/[^\u0000-\u00FF\n]/g,'') : '', W-2*M-16);
-    const h = 26 + lines.length*12;
-    novaPag(h);
-    doc.setFillColor(255,248,225); doc.setDrawColor(230,200,120); doc.roundedRect(M, y, W-2*M, h, 4, 4, 'FD');
-    doc.setFont(undefined,'bold'); doc.setFontSize(10); doc.setTextColor(122,59,10); doc.text('Observacao', M+8, y+15);
-    doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(50,50,50); doc.text(lines, M+8, y+29);
-    y += h + 14;
-  }
   const dets = function(o){
     const arr = Object.keys(turnosData).map(function(id){ return turnosData[id]; }).filter(function(tn){
       if(!tn || !tn.data || tn.freelancerId !== o.fid) return false;
@@ -2468,6 +2474,15 @@ function gerarRelatorioDetalhadoAberto(){
     doc.setTextColor(163,45,45); doc.text('Saldo '+brl(o.saldo), W-M, y, {align:'right'}); y += 12;
     doc.setFont(undefined,'normal'); doc.setFontSize(9); doc.setTextColor(90,90,90);
     doc.text('Pix: '+(f.pix?L(f.pix):'(sem chave cadastrada)')+'   |   Dias trabalhados: '+o.dias, M, y); y += 4;
+    const obsP = abObsDe(wk, o.fid, o.unidade);
+    if(obsP){
+      const ol = doc.splitTextToSize(L(obsP), W-2*M-16);
+      const oh = 12 + ol.length*11;
+      doc.setFillColor(255,248,225); doc.setDrawColor(230,200,120); doc.roundedRect(M, y+2, W-2*M, oh, 3, 3, 'FD');
+      doc.setFont(undefined,'bold'); doc.setFontSize(8.5); doc.setTextColor(122,59,10); doc.text('Obs.:', M+6, y+13);
+      doc.setFont(undefined,'normal'); doc.setTextColor(50,50,50); doc.text(ol, M+30, y+13);
+      y += oh + 4;
+    }
     doc.autoTable({
       startY: y+2, theme:'striped',
       head:[['Data','Dia','Descricao','Valor']], body: rows,

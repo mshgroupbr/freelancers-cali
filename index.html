@@ -2543,7 +2543,10 @@ function gerarPdfEmAberto(){
     doc.autoTable({
       startY: y+4,
       head: [['Freelancer','Função','Un.','Chave Pix','Diárias','Adiant.','Pago','A pagar']],
-      body: abertos.map(function(o){ const f = freelancersData[o.fid] || {}; return [nome(o), f.funcao||'', o.unidade==='Texas Country Bar'?'Texas':'Cali', f.pix||'(sem chave)', brl(o.bruto), o.adiant?('-'+brl(o.adiant)):'-', o.pago?('-'+brl(o.pago)):'-', brl(o.saldo)]; }),
+      body: abertos.reduce(function(acc,o){ const f = freelancersData[o.fid] || {}; acc.push([nome(o), f.funcao||'', o.unidade==='Texas Country Bar'?'Texas':'Cali', f.pix||'(sem chave)', brl(o.bruto), o.adiant?('-'+brl(o.adiant)):'-', o.pago?('-'+brl(o.pago)):'-', brl(o.saldo)]);
+        const ob = abObsDe(wk, o.fid, o.unidade);
+        if(ob) acc.push([{content:'Obs.: '+String(ob).replace(/[^\u0000-\u00FF]/g,''), colSpan:8, styles:{fontStyle:'italic', textColor:[122,59,10], fillColor:[255,248,225]}}]);
+        return acc; }, []),
       foot: [['TOTAL','','','',brl(abertos.reduce(function(s,o){return s+o.bruto;},0)), '-'+brl(abertos.reduce(function(s,o){return s+o.adiant;},0)), '-'+brl(abertos.reduce(function(s,o){return s+o.pago;},0)), brl(tot)]],
       showFoot:'lastPage',
       styles:{fontSize:8, font:'helvetica', cellPadding:3}, headStyles:{fillColor:[31,56,100], textColor:255, fontStyle:'bold'},

@@ -1555,7 +1555,7 @@ function fmtDataHoraBR(ms){
   return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 function advTxt(t){
-  return '⚠️ Adiantamento'+((t.origem==='plano'&&t.criadoEm)?(' · Pix transferido em '+fmtDataHoraBR(t.criadoEm)):(t.formaPgto==='dinheiro'?' · Dinheiro':(t.formaPgto==='pix'?' · Pix':'')));
+  return '⚠️ Adiantamento'+((t.origem==='plano'&&t.criadoEm)?((t.formaPgto==='dinheiro'?' · Dinheiro pago em ':' · Pix transferido em ')+fmtDataHoraBR(t.criadoEm)):(t.formaPgto==='dinheiro'?' · Dinheiro':(t.formaPgto==='pix'?' · Pix':'')));
 }
 function dataExibTurno(t){
   return (t.origem==='plano'&&t.criadoEm) ? new Date(t.criadoEm).toLocaleDateString('pt-BR') : isoParaBR(t.data);
@@ -1635,6 +1635,27 @@ function blocoPixPlano0(fid, f, subtotal){
       '</div>'+resumo+
     '</div>';
 }
+function perguntarFormaPgto(valor, nome, cb){
+  const old=document.getElementById('ov-forma'); if(old) old.remove();
+  const ov=document.createElement('div'); ov.id='ov-forma';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;color:#222;border-radius:14px;padding:20px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)';
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:17px;margin-bottom:6px'; h.textContent='Como foi pago?';
+  const p=document.createElement('div'); p.style.cssText='font-size:13.5px;color:#555;margin-bottom:14px;line-height:1.45';
+  p.appendChild(document.createTextNode('Adiantamento de '));
+  const b1=document.createElement('b'); b1.textContent=brl(valor); p.appendChild(b1);
+  p.appendChild(document.createTextNode(' para ')); const b2=document.createElement('b'); b2.textContent=nome; p.appendChild(b2);
+  p.appendChild(document.createTextNode('. Isso lança o adiantamento na folha da semana.'));
+  box.appendChild(h); box.appendChild(p);
+  const mk=function(txt,cls,fn){ const b=document.createElement('button'); b.className=cls; b.style.cssText='width:100%;margin-bottom:8px'; b.innerHTML=txt; b.onclick=function(){ ov.remove(); fn(); }; return b; };
+  box.appendChild(mk('<i class="ti ti-brand-pix"></i> Pix','btn-or',function(){ cb('pix'); }));
+  box.appendChild(mk('<i class="ti ti-cash"></i> Dinheiro','btn-or',function(){ cb('dinheiro'); }));
+  const c=document.createElement('button'); c.textContent='Cancelar'; c.style.cssText='width:100%;background:none;border:none;color:#777;padding:8px;font-size:14px;cursor:pointer'; c.onclick=function(){ ov.remove(); };
+  box.appendChild(c); ov.appendChild(box);
+  ov.addEventListener('click',function(e){ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
 function confirmarPagamentoPlano(fid){
   const f = freelancersData[fid]; if(!f) return;
   const semana = isoDate(currentWeekStart);
@@ -1650,14 +1671,15 @@ function confirmarPagamentoPlano(fid){
   if(!plano || !(plano.valor>0)){ toast('⚠️ Salve o valor do plano primeiro'); return; }
   const iv = parseFloat(document.getElementById('plano-v-'+fid).value);
   if(iv !== plano.valor){ toast('⚠️ Valor alterado — clique em Salvar antes de confirmar'); return; }
-  if(!confirm('Confirmar que o financeiro transferiu '+brl(plano.valor)+' para '+f.nome+'?\nIsso lança o adiantamento na folha da semana.')) return;
+  perguntarFormaPgto(plano.valor, f.nome, function(forma){
   const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
   const ini = isoDate(currentWeekStart), fim = isoDate(weekEnd);
   const dataLanc = (plano.data && plano.data>=ini && plano.data<=fim) ? plano.data : fim;
   const hoje = new Date().toLocaleDateString('pt-BR');
-  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:'Adiantamento via Pix (plano de pagamento) · transferido em '+fmtDataHoraBR(Date.now()), criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-plano.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano'});
+  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:(forma==='dinheiro'?'Adiantamento em dinheiro (plano de pagamento) · pago em ':'Adiantamento via Pix (plano de pagamento) · transferido em ')+fmtDataHoraBR(Date.now()), formaPgto:forma, criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-plano.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano'});
   ref.update({pago:true, turnoId:novo.key, pagoEm:Date.now()});
   toast('✅ Adiantamento lançado na folha');
+  });
 }
 function salvarPlano(fid){
   const semana = isoDate(currentWeekStart);
@@ -1736,13 +1758,14 @@ function confirmarPlanoEx(fid,k){
   if(!cur || !(cur.valor>0)){ toast('⚠️ Salve o valor primeiro'); return; }
   const iv = parseFloat(document.getElementById('plx-v-'+k).value);
   if(iv !== cur.valor){ toast('⚠️ Valor alterado — clique em Salvar antes de confirmar'); return; }
-  if(!confirm('Confirmar que o financeiro transferiu '+brl(cur.valor)+' para '+f.nome+'?\nIsso lança o adiantamento na folha da semana.')) return;
+  perguntarFormaPgto(cur.valor, f.nome, function(forma){
   const weekEnd = new Date(currentWeekStart); weekEnd.setDate(weekEnd.getDate()+6);
   const ini = isoDate(currentWeekStart), fim = isoDate(weekEnd);
   const dataLanc = (cur.data && cur.data>=ini && cur.data<=fim) ? cur.data : fim;
-  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:'Adiantamento via Pix (plano de pagamento) · transferido em '+fmtDataHoraBR(Date.now()), criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-cur.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano', planoKey:k});
+  const novo = TN_REF.push({freelancerId:fid, data:dataLanc, unidade:getUnidadeAtual(), observacao:(forma==='dinheiro'?'Adiantamento em dinheiro (plano de pagamento) · pago em ':'Adiantamento via Pix (plano de pagamento) · transferido em ')+fmtDataHoraBR(Date.now()), formaPgto:forma, criadoEm:Date.now(), tipo:'adiantamento', valorFixoDia:-cur.valor, entrada:null, saida:null, valorHora:null, intervaloInicio:null, intervaloFim:null, intervaloDesconta:null, origem:'plano', planoKey:k});
   ref.update({pago:true, turnoId:novo.key, pagoEm:Date.now()});
   toast('✅ Adiantamento lançado na folha');
+  });
 }
 
 // ---- RECIBOS ----
@@ -2464,7 +2487,7 @@ function gerarRelatorioDetalhadoAberto(){
       const f = freelancersData[tn.freelancerId];
       const v = totalDiaTurno(tn, f) || 0;
       let d;
-      if(tn.tipo==='adiantamento') d = 'Adiantamento' + ((tn.origem==='plano'&&tn.criadoEm) ? ' (Pix em '+new Date(tn.criadoEm).toLocaleDateString('pt-BR')+')' : (tn.formaPgto==='dinheiro' ? ' (Dinheiro)' : (tn.formaPgto==='pix' ? ' (Pix)' : '')));
+      if(tn.tipo==='adiantamento') d = 'Adiantamento' + ((tn.origem==='plano'&&tn.criadoEm) ? (tn.formaPgto==='dinheiro'?' (Dinheiro em ':' (Pix em ')+new Date(tn.criadoEm).toLocaleDateString('pt-BR')+')' : (tn.formaPgto==='dinheiro' ? ' (Dinheiro)' : (tn.formaPgto==='pix' ? ' (Pix)' : '')));
       else if(tn.tipo==='ajuste') d = ajTxt(tn);
       else if(tn.valorFixoDia && !tn.entrada) d = 'Diaria (valor fixo)';
       else d = (tn.entrada||'')+' - '+(tn.saida||'')+' ('+horasComIntervalo(tn).toFixed(2)+'h)';

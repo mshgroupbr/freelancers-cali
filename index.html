@@ -795,12 +795,29 @@ function atualizarIconeHome(){
     ? '<img src="https://mshgroupbr.github.io/pedido-compras/icon-texas.png" alt="Texas Country Bar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
     : '<img src="https://mshgroupbr.github.io/pedido-compras/icon-cali.png" alt="Cali Cravings" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
 }
-function escolherUnidade(u){
+async function escolherUnidade(u){
+  const gerente = sessionStorage.getItem('ff_logged')==='1';
+  const cu = firebase.auth().currentUser;
+  if(!gerente && currentRole==='lider' && cu && cu.email){
+    const anterior = window._unidadePrev || 'Cali Cravings';
+    const liderAnterior = liderInfo;
+    salvarUnidadeAtiva(u);
+    const info = await buscarLiderAutorizado(cu.email);
+    if(info){ liderInfo = info; showApp(); }
+    else {
+      toast('⚠️ Seu e-mail não tem acesso de líder em '+u);
+      salvarUnidadeAtiva(anterior);
+      liderInfo = liderAnterior;
+      showApp();
+    }
+    return;
+  }
   salvarUnidadeAtiva(u);
-  if(sessionStorage.getItem('ff_logged')==='1'){ showApp(); }
+  if(gerente){ showApp(); }
   else { goTo('s-login'); }
 }
 function trocarUnidade(){
+  window._unidadePrev = getUnidadeAtual();
   localStorage.removeItem('unidadeAtiva');
   goTo('s-unidade');
 }

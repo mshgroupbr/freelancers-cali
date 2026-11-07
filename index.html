@@ -271,7 +271,7 @@ if('serviceWorker' in navigator){
     <div class="rs" id="home-role-info" style="margin:-6px 0 2px"></div>
     <button class="btn-or" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
     <button class="btn-excel-home gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
-    <button class="btn-excel-home gerente-only" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
+    <button class="btn-excel-home" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
     <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
@@ -678,7 +678,7 @@ if('serviceWorker' in navigator){
   <button class="side-it" data-s="s-home" onclick="goTo('s-home')"><i class="ti ti-home"></i> Início</button>
   <button class="side-it" data-s="s-turno" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
   <button class="side-it gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
-  <button class="side-it gerente-only" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
+  <button class="side-it" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
   <button class="side-it" data-s="s-freelancers" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
   <button class="side-it gerente-only" data-s="s-fechamento" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
   <button class="side-it gerente-only" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>

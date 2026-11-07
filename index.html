@@ -200,6 +200,7 @@ body.desk #s-aberto .pad{max-width:980px}
 .ab-pagar{margin-left:auto;background:#1e8e5a;color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
 .ab-pagar:active{opacity:.8}
 .ab-un{background:none;border:0;color:#c0392b;font-size:11px;text-decoration:underline;cursor:pointer;font-family:inherit;margin-left:6px}
+.role-lider .ab-pix,.role-lider .ab-obs,.role-lider .ab-un{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -277,6 +278,7 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-ajuste');renderAjuste()"><i class="ti ti-gift"></i> Lançar ajuste (bônus / atrasado)</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico por freelancer</button>
+    <button class="btn-excel-home lider-only" style="display:none" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Pagamentos em aberto da equipe</button>
     <button class="btn-excel-home lider-only" style="display:none" onclick="goTo('s-equipe');renderEquipe()"><i class="ti ti-calendar-stats"></i> Histórico da equipe (resumo semanal)</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
@@ -682,6 +684,7 @@ if('serviceWorker' in navigator){
   <button class="side-it" data-s="s-freelancers" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
   <button class="side-it gerente-only" data-s="s-fechamento" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
   <button class="side-it gerente-only" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
+  <button class="side-it lider-only" style="display:none" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto da equipe</button>
   <button class="side-it gerente-only" data-s="s-ajuste" onclick="goTo('s-ajuste');renderAjuste()"><i class="ti ti-gift"></i> Lançar ajuste</button>
   <button class="side-it" data-s="s-historico" onclick="goTo('s-historico');renderHistoricoSelect();renderHistorico()"><i class="ti ti-history"></i> Histórico</button>
   <button class="side-it gerente-only" data-s="s-acessos" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
@@ -2335,6 +2338,7 @@ function abAgrupar(un){
     const f = freelancersData[tn.freelancerId];
     const unidade = tn.unidade || (f && f.unidade) || 'Cali Cravings';
     if(un && unidade !== un) return;
+    if(currentRole==='lider' && liderInfo && (!f || f.setor!==liderInfo.setor)) return;
     const valor = totalDiaTurno(tn, f) || 0;
     const o = get(isoDate(getMonday(new Date(tn.data+'T00:00:00'))), tn.freelancerId, unidade);
     if(tn.tipo === 'adiantamento'){ o.adiant += Math.abs(valor); } else if(tn.tipo === 'ajuste'){ o.bruto += valor; o.aj += valor; } else { o.bruto += valor; o.dias += 1; }
@@ -2345,6 +2349,7 @@ function abAgrupar(un){
     if(!p || !p.semana) return;
     const unidade = p.unidade || 'Cali Cravings';
     if(un && unidade !== un) return;
+    if(currentRole==='lider' && liderInfo){ const fp = freelancersData[p.freelancerId]; if(!fp || fp.setor!==liderInfo.setor) return; }
     const o = get(p.semana, p.freelancerId, unidade);
     o.pago += (p.valor||0); o.saldo -= (p.valor||0); o.pags.push({id:id, valor:p.valor||0, data:p.pagoData||''});
   });
@@ -2353,6 +2358,7 @@ function abAgrupar(un){
 function abIr(wk){ const s = document.getElementById('ab-sem'); if(s){ s.value = wk; renderEmAberto(); window.scrollTo(0,0); } }
 function abFecharModal(){ const m = document.getElementById('ab-modal'); if(m) m.remove(); }
 function abPagar(btn){
+  if(currentRole==='lider') return;
   const wk = btn.dataset.wk, fid = btn.dataset.fid, un = btn.dataset.un, saldo = parseFloat(btn.dataset.saldo);
   const f = freelancersData[fid]; if(!f) return;
   abFecharModal();
@@ -2379,13 +2385,22 @@ function abPagar(btn){
   };
 }
 function abDesfazer(btn){
+  if(currentRole==='lider') return;
   const id = btn.dataset.id;
   if(!confirm('Desfazer este pagamento? O valor volta para "em aberto".')) return;
   db.ref('pagamentos/'+id).remove();
   toast('↩️ Pagamento desfeito');
 }
 function renderEmAberto(){
-  if(currentRole==='lider'){ goTo('s-home'); return; }
+  const lid = currentRole==='lider';
+  if(lid && !liderInfo){ goTo('s-home'); return; }
+  const scAb = document.getElementById('s-aberto');
+  if(scAb){
+    scAb.querySelectorAll('.btn-pdf').forEach(function(b){ b.style.display = lid ? 'none' : ''; });
+    const antEl = document.getElementById('ab-ant'); if(antEl && antEl.closest('.card')) antEl.closest('.card').style.display = lid ? 'none' : '';
+    const unEl = document.getElementById('ab-un'); if(unEl){ unEl.style.display = lid ? 'none' : ''; if(unEl.previousElementSibling) unEl.previousElementSibling.style.display = lid ? 'none' : ''; }
+    const sub = scAb.querySelector('.htxt p'); if(sub) sub.textContent = lid ? ('Equipe de '+liderInfo.setor+' · '+getUnidadeAtual()+' · só consulta') : 'Saldos a pagar · semana de seg a dom, pagamento na quarta';
+  }
   abIniciar();
   const sel = document.getElementById('ab-sem');
   if(!sel) return;
@@ -2400,7 +2415,7 @@ function renderEmAberto(){
     }
   }
   const wk = sel.value;
-  const un = document.getElementById('ab-un').value;
+  const un = lid ? getUnidadeAtual() : document.getElementById('ab-un').value;
   const todos = abAgrupar(un);
   const sem = todos.filter(function(o){ return o.mon === wk; });
   const abertos = sem.filter(function(o){ return o.saldo > 0.005; }).sort(function(a,b){ return b.saldo - a.saldo; });
@@ -2433,7 +2448,7 @@ function renderEmAberto(){
         '<div class="ab-top"><div class="ab-nm">'+relEsc(nomeDe(o))+'<small>'+relEsc((f.funcao||'')+unTag(o))+'</small></div><div class="ab-sd">'+brl(o.saldo)+'</div></div>' +
         '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto-o.aj)+(o.aj ? ' + ajustes '+brl(o.aj) : '')+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +
         (o.pago ? '<div class="ab-ln"><span>Pago parcial: '+brl(o.pago)+desf(o)+'</span><span></span></div>' : '') +
-        '<div style="margin-top:8px"><input type="text" maxlength="300" data-wk="'+wk+'" data-k="'+abObsKey(o.fid,o.unidade)+'" value="'+relEsc(abObsDe(wk,o.fid,o.unidade))+'" placeholder="📝 Observação sobre este colaborador (opcional)" onchange="abSalvarObs(this)" style="width:100%;box-sizing:border-box;margin:0;font-size:13px;padding:8px 10px"></div>' +
+        '<div class="ab-obs" style="margin-top:8px"><input type="text" maxlength="300" data-wk="'+wk+'" data-k="'+abObsKey(o.fid,o.unidade)+'" value="'+relEsc(abObsDe(wk,o.fid,o.unidade))+'" placeholder="📝 Observação sobre este colaborador (opcional)" onchange="abSalvarObs(this)" style="width:100%;box-sizing:border-box;margin:0;font-size:13px;padding:8px 10px"></div>' +
         '<div class="ab-pix">'+(pix ? '<span>Pix: <b>'+relEsc(pix)+'</b></span><button data-pix="'+relEsc(pix)+'" onclick="copiarPix(this.dataset.pix)"><i class="ti ti-copy"></i> copiar</button>' : '<span style="color:#c0392b">sem chave Pix cadastrada</span>')+
         '<button class="ab-pagar" data-wk="'+wk+'" data-fid="'+o.fid+'" data-un="'+relEsc(o.unidade)+'" data-saldo="'+o.saldo.toFixed(2)+'" onclick="abPagar(this)"><i class="ti ti-cash"></i> PAGAR</button></div>' +
         '</div>';
@@ -2649,6 +2664,7 @@ function sair(){
 }
 function aplicarRestricoesPapel(){
   const isLider = currentRole==='lider';
+  document.body.classList.toggle('role-lider', isLider);
   document.querySelectorAll('.gerente-only').forEach(function(el){ el.style.display = isLider ? 'none' : ''; });
   document.querySelectorAll('.lider-only').forEach(function(el){ el.style.display = isLider ? '' : 'none'; });
   const info = document.getElementById('home-role-info');

@@ -200,7 +200,7 @@ body.desk #s-aberto .pad{max-width:980px}
 .ab-pagar{margin-left:auto;background:#1e8e5a;color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
 .ab-pagar:active{opacity:.8}
 .ab-un{background:none;border:0;color:#c0392b;font-size:11px;text-decoration:underline;cursor:pointer;font-family:inherit;margin-left:6px}
-.role-lider .ab-pix,.role-lider .ab-obs,.role-lider .ab-un{display:none!important}
+.role-lider .ab-pagar,.role-lider .ab-pix,.role-lider .ab-obs,.role-lider .ab-un{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2445,7 +2445,7 @@ function renderEmAberto(){
       const f = freelancersData[o.fid] || {};
       const pix = f.pix || '';
       const outras = todos.filter(function(x){ return x.fid===o.fid && x.unidade===o.unidade && x.mon!==wk && x.saldo>0.005; }).sort(function(a,b){ return a.mon<b.mon?-1:1; });
-      const outrasHtml = outras.length ? '<div class="ab-ln" style="flex-direction:column;align-items:flex-start;gap:4px;margin-top:4px;color:#c0392b"><span>⚠ Também em aberto em '+outras.length+' outra'+(outras.length>1?'s':'')+' semana'+(outras.length>1?'s':'')+':</span>'+outras.map(function(x){ return '<button class="ab-old" data-wk="'+x.mon+'" onclick="abIr(this.dataset.wk)" style="width:100%"><span>'+relSemanaLabel(x.mon)+'</span><b>'+brl(x.saldo)+'</b></button>'; }).join('')+'</div>' : '';
+      const outrasHtml = outras.length ? '<div class="ab-ln" style="flex-direction:column;align-items:flex-start;gap:4px;margin-top:4px;color:#c0392b"><span>⚠ Também em aberto em '+outras.length+' outra'+(outras.length>1?'s':'')+' semana'+(outras.length>1?'s':'')+':</span>'+outras.map(function(x){ return '<div style="display:flex;align-items:center;gap:8px;width:100%"><button class="ab-old" data-wk="'+x.mon+'" onclick="abIr(this.dataset.wk)" style="flex:1;margin:0"><span>'+relSemanaLabel(x.mon)+'</span><b>'+brl(x.saldo)+'</b></button><button class="ab-pagar" data-wk="'+x.mon+'" data-fid="'+x.fid+'" data-un="'+relEsc(x.unidade)+'" data-saldo="'+x.saldo.toFixed(2)+'" onclick="abPagar(this)"><i class="ti ti-cash"></i> PAGAR</button></div>'; }).join('')+'</div>' : '';
       return '<div class="ab-it">' +
         '<div class="ab-top"><div class="ab-nm">'+relEsc(nomeDe(o))+'<small>'+relEsc((f.funcao||'')+unTag(o))+'</small></div><div class="ab-sd">'+brl(o.saldo)+'</div></div>' +
         '<div class="ab-ln"><span>Diárias ('+o.dias+'): '+brl(o.bruto-o.aj)+(o.aj ? ' + ajustes '+brl(o.aj) : '')+'</span><span>'+(o.adiant ? 'Adiantado: -'+brl(o.adiant) : 'Sem adiantamento')+'</span></div>' +

@@ -283,6 +283,7 @@ if('serviceWorker' in navigator){
     <button class="btn-excel-home gerente-only" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-relatorio');renderRelatorio()"><i class="ti ti-file-analytics"></i> Relatório de gastos</button>
+    <button class="btn-excel-home gerente-only" onclick="goTo('s-calc');renderCalc()"><i class="ti ti-calculator"></i> Calculadora (13º salário)</button>
     <div>
       <div class="sec-l">Lançamentos recentes</div>
       <div id="tn-recentes" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -382,6 +383,58 @@ if('serviceWorker' in navigator){
       <button class="btn-or" onclick="gerarRelatorioDetalhadoAberto()"><i class="ti ti-report"></i> Gerar relatório detalhado dos em aberto</button>
       <div style="font-size:11.5px;opacity:.7;margin-top:8px">Relatório em PDF com cada freelancer: dias trabalhados, ajustes, adiantamentos, pagamentos, saldo e a observação de cada colaborador (campo 📝 em cada card acima). Respeita a semana e a unidade escolhidas.</div>
     </div>
+  </div>
+</div>
+
+<!-- CALCULADORA -->
+<div class="screen" id="s-calc">
+  <div class="hdr">
+    <button class="hbk" onclick="goTo('s-home')"><i class="ti ti-arrow-left"></i></button>
+    <div class="htxt"><h1>Calculadora</h1><p>13º salário · proporcional</p></div>
+  </div>
+  <div class="pad">
+    <div class="card">
+      <label class="fl">Preencher com freelancer cadastrado (opcional)</label>
+      <select id="cx-fl" onchange="cxPreencher()" style="margin-bottom:12px"></select>
+      <label class="fl">Nome do funcionário</label>
+      <input id="cx-nome" type="text" placeholder="Nome completo" oninput="calcCalc()" style="margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="fl">Cargo</label><input id="cx-cargo" type="text" oninput="calcCalc()"></div>
+        <div><label class="fl">Ano do 13º</label><input id="cx-ano" type="number" oninput="cxAnoChange()"></div>
+        <div><label class="fl">Admissão</label><input id="cx-adm" type="date" oninput="calcCalc()"></div>
+        <div><label class="fl">Cálculo / desligamento</label><input id="cx-fim" type="date" oninput="calcCalc()"></div>
+      </div>
+      <div style="font-size:11.5px;opacity:.7;margin-top:8px">Funcionário ativo: deixe a data de cálculo em 31/12. Desligado: coloque a data do desligamento.</div>
+    </div>
+    <div class="card">
+      <label class="fl">Situação do contrato</label>
+      <select id="cx-tipo" onchange="calcCalc()" style="margin-bottom:12px">
+        <option value="continua">Continua trabalhando</option>
+        <option value="semjc">Demissão sem justa causa</option>
+        <option value="acordo">Demissão por acordo (art. 484-A)</option>
+        <option value="pedido">Pedido de demissão</option>
+        <option value="fimcontrato">Término de contrato / experiência</option>
+        <option value="justa">Justa causa (perde o 13º)</option>
+      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="fl">Salário mensal (R$)</label><input id="cx-sal" type="number" step="0.01" placeholder="0,00" oninput="calcCalc()"></div>
+        <div><label class="fl">Média de variáveis/mês (R$)</label><input id="cx-var" type="number" step="0.01" placeholder="0,00" oninput="calcCalc()"></div>
+        <div><label class="fl">Aviso prévio indenizado (dias)</label><input id="cx-aviso" type="number" step="1" placeholder="0" oninput="calcCalc()"></div>
+        <div><label class="fl">Dependentes (IRRF)</label><input id="cx-dep" type="number" step="1" placeholder="0" oninput="calcCalc()"></div>
+        <div><label class="fl">1ª parcela já paga (R$)</label><input id="cx-p1" type="number" step="0.01" placeholder="0,00" oninput="calcCalc()"></div>
+      </div>
+      <div style="font-size:11.5px;opacity:.7;margin:8px 0 10px">Variáveis: média mensal de horas extras, adicional noturno, comissões e taxa de serviço recebidos no ano.</div>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer"><input type="checkbox" id="cx-red" checked onchange="calcCalc()" style="width:20px;height:20px;margin:0"> Aplicar redutor do IR de 2026 (Lei 15.270)</label>
+    </div>
+    <div class="card">
+      <div class="clb">Meses do ano (conta o mês com 15 dias ou mais de trabalho)</div>
+      <div id="cx-meses"></div>
+      <div style="font-size:11.5px;opacity:.7;margin-top:8px">Em "Faltas", coloque os dias do mês sem trabalho: faltas injustificadas, suspensão ou afastamento. O mês só conta se sobrar 15 dias ou mais.</div>
+    </div>
+    <div class="card" id="cx-res"></div>
+    <button class="btn-or" onclick="cxCopiar()"><i class="ti ti-copy"></i> Copiar resumo</button>
+    <button class="btn-pdf" onclick="cxPdf()"><i class="ti ti-file-type-pdf"></i> Gerar PDF do cálculo</button>
+    <button class="btn-sm" style="width:100%" onclick="cxLimpar()">Limpar tudo</button>
   </div>
 </div>
 
@@ -696,6 +749,7 @@ if('serviceWorker' in navigator){
   <button class="side-it gerente-only" data-s="s-acessos" onclick="goTo('s-acessos');renderAcessos()"><i class="ti ti-shield-lock"></i> Gestão de acessos</button>
   <button class="side-it gerente-only" data-s="s-setor" onclick="goTo('s-setor');renderAnaliseSetor()"><i class="ti ti-chart-bar"></i> Análise por Setor</button>
   <button class="side-it gerente-only" data-s="s-relatorio" onclick="goTo('s-relatorio');renderRelatorio()"><i class="ti ti-file-analytics"></i> Relatório de gastos</button>
+  <button class="side-it gerente-only" data-s="s-calc" onclick="goTo('s-calc');renderCalc()"><i class="ti ti-calculator"></i> Calculadora</button>
   <div class="side-foot">
     <div class="side-unit" id="side-unit"></div>
     <button class="side-it" onclick="trocarUnidade()"><i class="ti ti-arrows-exchange"></i> Trocar unidade</button>
@@ -2329,6 +2383,129 @@ function salvarAjuste(){
 }
 // ---- EM ABERTO ----
 var pagamentosData = {}; var abListener = false;
+
+// ---- CALCULADORA: 13º SALÁRIO ----
+var CX_INSS = [[1621.00,0.075],[2902.84,0.09],[4354.27,0.12],[8475.55,0.14]];
+var CX_IRRF = [[2428.80,0,0],[2826.65,0.075,182.16],[3751.05,0.15,394.16],[4664.68,0.225,675.49],[Infinity,0.275,908.73]];
+var CX_DEP = 189.59;
+var CX_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var cxFaltas = [0,0,0,0,0,0,0,0,0,0,0,0];
+var cxUlt = null;
+function cx2(n){ return Math.round(n*100)/100; }
+function cxNum(id){ const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? 0 : v; }
+function cxData(id){ const v = document.getElementById(id).value; return v ? new Date(v+'T00:00:00') : null; }
+function cxInss(b){ let prev=0, t=0; for(let i=0;i<CX_INSS.length;i++){ const f=CX_INSS[i]; if(b>prev) t += (Math.min(b,f[0])-prev)*f[1]; prev=f[0]; } return cx2(t); }
+function cxIrrf(bruto, inss, dep, usaRed){
+  const base = Math.max(0, bruto - inss - dep*CX_DEP); let imp = 0;
+  for(let i=0;i<CX_IRRF.length;i++){ const f=CX_IRRF[i]; if(base<=f[0]){ imp = Math.max(0, base*f[1]-f[2]); break; } }
+  let red = 0;
+  if(usaRed){ if(bruto<=5000) red=312.89; else if(bruto<=7350) red=Math.max(0, 978.62-0.133145*bruto); red=Math.min(red, imp); }
+  return {base:base, imp:cx2(imp), red:cx2(red), irrf:cx2(Math.max(0, imp-red))};
+}
+function renderCalc(){
+  if(currentRole==='lider'){ goTo('s-home'); return; }
+  const sel = document.getElementById('cx-fl');
+  if(sel && !sel.options.length){
+    const fr = Object.entries(freelancersDaUnidade()).sort(function(a,b){ return (a[1].nome||'').localeCompare(b[1].nome||''); });
+    sel.innerHTML = '<option value="">— digitar manualmente —</option>' + fr.map(function(p){ return '<option value="'+p[0]+'">'+relEsc(p[1].nome||'')+'</option>'; }).join('');
+  }
+  const ano = document.getElementById('cx-ano');
+  if(!ano.value) ano.value = new Date().getFullYear();
+  const fim = document.getElementById('cx-fim');
+  if(!fim.value) fim.value = ano.value+'-12-31';
+  const box = document.getElementById('cx-meses');
+  if(box && !box.dataset.ok){
+    box.dataset.ok = '1';
+    box.innerHTML = '<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px;font-size:11px;opacity:.65;margin-bottom:4px"><span>Mês</span><span>Dias no vínculo</span><span>Faltas</span><span>Conta?</span></div>' +
+      CX_MESES.map(function(n,m){ return '<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:4px;font-size:13px"><span>'+n+'</span><span id="cx-md-'+m+'">0</span><input type="number" min="0" max="31" value="0" id="cx-mf-'+m+'" oninput="cxFalta('+m+',this.value)" style="padding:4px 6px"><b id="cx-mc-'+m+'">—</b></div>'; }).join('');
+  }
+  calcCalc();
+}
+function cxAnoChange(){ const ano=document.getElementById('cx-ano').value, fim=document.getElementById('cx-fim'); if(!fim.value || /-12-31$/.test(fim.value)) fim.value = ano+'-12-31'; calcCalc(); }
+function cxFalta(m,v){ cxFaltas[m] = Math.max(0, parseInt(v)||0); calcCalc(); }
+function cxPreencher(){ const id=document.getElementById('cx-fl').value; const f=freelancersData[id]; if(!f) return; document.getElementById('cx-nome').value=f.nome||''; document.getElementById('cx-cargo').value=f.funcao||''; calcCalc(); }
+function cxLimpar(){
+  ['cx-nome','cx-cargo','cx-adm','cx-sal','cx-var','cx-aviso','cx-dep','cx-p1'].forEach(function(i){ document.getElementById(i).value=''; });
+  document.getElementById('cx-fl').value=''; document.getElementById('cx-tipo').value='continua'; document.getElementById('cx-red').checked=true;
+  cxFaltas=[0,0,0,0,0,0,0,0,0,0,0,0]; for(let m=0;m<12;m++){ const e=document.getElementById('cx-mf-'+m); if(e) e.value=0; }
+  document.getElementById('cx-fim').value=''; renderCalc();
+}
+function calcCalc(){
+  const out = document.getElementById('cx-res'); if(!out) return;
+  const ano = parseInt(document.getElementById('cx-ano').value) || new Date().getFullYear();
+  const adm = cxData('cx-adm'), fim = cxData('cx-fim');
+  const tipo = document.getElementById('cx-tipo').value;
+  const nome = (document.getElementById('cx-nome').value||'').trim(), cargo = (document.getElementById('cx-cargo').value||'').trim();
+  const sal = cxNum('cx-sal'), vari = cxNum('cx-var'), aviso = Math.max(0,cxNum('cx-aviso')), dep = Math.max(0,Math.floor(cxNum('cx-dep'))), p1 = cxNum('cx-p1');
+  const usaRed = document.getElementById('cx-red').checked;
+  if(!adm || !fim){ out.innerHTML='<div class="empty"><i class="ti ti-calculator"></i>Informe a admissão e a data de cálculo</div>'; cxUlt=null; for(let m=0;m<12;m++){ const a=document.getElementById('cx-md-'+m), c=document.getElementById('cx-mc-'+m); if(a) a.textContent='0'; if(c) c.textContent='—'; } return; }
+  let fp = new Date(fim); fp.setDate(fp.getDate()+aviso); const dez = new Date(ano,11,31); if(fp>dez) fp = dez;
+  let avos = 0;
+  for(let m=0;m<12;m++){
+    const pri = new Date(ano,m,1), ult = new Date(ano,m+1,0);
+    const ini = adm>pri ? adm : pri, fi = fp<ult ? fp : ult;
+    const dias = fi>=ini ? Math.round((fi-ini)/86400000)+1 : 0;
+    const trab = Math.max(0, dias - (cxFaltas[m]||0)), conta = trab>=15;
+    if(conta) avos++;
+    const a=document.getElementById('cx-md-'+m), c=document.getElementById('cx-mc-'+m);
+    if(a) a.textContent = dias; if(c){ c.textContent = conta ? 'Sim' : 'Não'; c.style.color = conta ? '#1e8e5a' : '#c0392b'; }
+  }
+  const base = sal + vari;
+  let bruto = tipo==='justa' ? 0 : cx2(base*avos/12);
+  const inss = cxInss(bruto);
+  const ir = cxIrrf(bruto, inss, dep, usaRed);
+  const liquido = cx2(bruto - inss - ir.irrf);
+  const seg = cx2(liquido - p1);
+  const fgts = cx2(bruto*0.08);
+  const sug1 = cx2(bruto/2);
+  const R = {nome:nome, cargo:cargo, ano:ano, adm:adm, fim:fim, tipo:tipo, avos:avos, base:base, sal:sal, vari:vari, bruto:bruto, p1:p1, inss:inss, ir:ir, liquido:liquido, seg:seg, fgts:fgts, custo:cx2(bruto+fgts), sug1:sug1, dep:dep, aviso:aviso};
+  cxUlt = R;
+  const tl = {continua:'Continua trabalhando',semjc:'Demissão sem justa causa',acordo:'Demissão por acordo (art. 484-A)',pedido:'Pedido de demissão',fimcontrato:'Término de contrato',justa:'Justa causa'}[tipo];
+  const linha = function(k,v,cor,b){ return '<div class="dr"><div class="dk">'+k+'</div><div class="dv"'+(cor?' style="color:'+cor+(b?';font-weight:700':'')+'"':(b?' style="font-weight:700"':''))+'>'+v+'</div></div>'; };
+  let h = '<div class="clb">Resultado'+(nome?' · '+relEsc(nome):'')+'</div>';
+  if(cargo) h += linha('Cargo', relEsc(cargo));
+  h += linha('Situação', tl) + linha('Meses (avos) no ano', '<b>'+avos+'/12</b>') + linha('Remuneração base', brl(base));
+  if(tipo==='justa') h += '<div class="empty" style="text-align:left;color:#c0392b;padding:8px 0"><i class="ti ti-alert-triangle"></i> Na demissão por justa causa o funcionário perde o direito ao 13º proporcional.</div>';
+  if(!sal) h += '<div class="empty" style="text-align:left;padding:8px 0"><i class="ti ti-info-circle"></i> Informe o salário mensal para calcular os valores.</div>';
+  h += linha('13º bruto proporcional', brl(bruto), null, true);
+  h += linha('(−) 1ª parcela já paga', p1 ? '− '+brl(p1) : '— não informada');
+  h += linha('(−) INSS', '− '+brl(inss));
+  h += linha('(−) IRRF'+(ir.red?' (com redutor de '+brl(ir.red)+')':''), '− '+brl(ir.irrf));
+  h += linha('2ª parcela líquida a pagar', brl(seg), '#1e8e5a', true);
+  h += linha('13º líquido total', brl(liquido));
+  h += '<div style="border-top:.5px solid var(--bdr);margin:10px 0 6px"></div>';
+  h += linha('FGTS 8% (encargo da empresa)', brl(fgts)) + linha('Custo estimado para a empresa', brl(R.custo));
+  h += '<div style="font-size:11.5px;opacity:.7;margin-top:10px;line-height:1.5">'+
+    (tipo==='continua' ? 'Sugestão da 1ª parcela (50%, até 30/11): '+brl(sug1)+'. A 2ª parcela vence em 20/12. ' : 'Na rescisão o 13º é pago junto com as demais verbas. ')+
+    'INSS e IRRF do 13º são calculados separadamente do salário do mês, com as tabelas de 2026 (INSS até o teto de R$ 8.475,55; IRRF sem desconto simplificado). Não inclui o INSS patronal. Estimativa: confirme com a contabilidade antes de pagar.</div>';
+  out.innerHTML = h;
+}
+function cxTexto(){
+  const R = cxUlt; if(!R) return '';
+  const d = function(x){ return isoParaBR(isoDate(x)); };
+  const L = ['CALCULO DE 13o SALARIO '+R.ano, 'Funcionario: '+(R.nome||'-')+(R.cargo?' ('+R.cargo+')':''), 'Periodo: '+d(R.adm)+' a '+d(R.fim), 'Meses (avos): '+R.avos+'/12', 'Remuneracao base: '+brl(R.base)+(R.vari?' (salario '+brl(R.sal)+' + variaveis '+brl(R.vari)+')':''), '13o bruto: '+brl(R.bruto)];
+  if(R.p1) L.push('1a parcela paga: '+brl(R.p1));
+  L.push('INSS: '+brl(R.inss), 'IRRF: '+brl(R.ir.irrf), '2a parcela liquida: '+brl(R.seg), '13o liquido total: '+brl(R.liquido), 'FGTS 8% (empresa): '+brl(R.fgts));
+  if(R.tipo==='justa') L.push('Justa causa: sem direito ao 13o proporcional.');
+  return L.join('\n');
+}
+function cxCopiar(){ const t = cxTexto(); if(!t){ toast('⚠️ Preencha o cálculo primeiro'); return; } if(navigator.clipboard){ navigator.clipboard.writeText(t).then(function(){ toast('✅ Resumo copiado'); }, function(){ toast('⚠️ Não foi possível copiar'); }); } else toast('⚠️ Não foi possível copiar'); }
+function cxPdf(){
+  const R = cxUlt; if(!R){ toast('⚠️ Preencha o cálculo primeiro'); return; }
+  const jsPDF = window.jspdf.jsPDF; const doc = new jsPDF({unit:'pt', format:'a4'});
+  const d = function(x){ return isoParaBR(isoDate(x)); };
+  let y = 50; doc.setFontSize(16); doc.text('Cálculo de 13º salário '+R.ano, 40, y); y += 22;
+  doc.setFontSize(10); doc.text('Masha Group · '+getUnidadeAtual()+' · gerado em '+isoParaBR(isoDate(new Date())), 40, y); y += 24;
+  doc.setFontSize(11);
+  [['Funcionário', (R.nome||'-')+(R.cargo?' ('+R.cargo+')':'')], ['Período', d(R.adm)+' a '+d(R.fim)], ['Meses (avos)', R.avos+'/12'], ['Remuneração base', brl(R.base)+(R.vari?' (salário '+brl(R.sal)+' + variáveis '+brl(R.vari)+')':'')]].forEach(function(r){ doc.text(r[0]+': '+r[1], 40, y); y += 16; });
+  y += 6;
+  const rows = [['13º bruto proporcional', brl(R.bruto)], ['(−) 1ª parcela já paga', R.p1?brl(R.p1):'-'], ['(−) INSS', brl(R.inss)], ['(−) IRRF', brl(R.ir.irrf)], ['2ª parcela líquida a pagar', brl(R.seg)], ['13º líquido total', brl(R.liquido)], ['FGTS 8% (encargo da empresa)', brl(R.fgts)], ['Custo estimado para a empresa', brl(R.custo)]];
+  if(doc.autoTable){ doc.autoTable({startY:y, head:[['Item','Valor']], body:rows, styles:{fontSize:10}, headStyles:{fillColor:[31,56,100]}}); y = doc.lastAutoTable.finalY + 14; }
+  else { rows.forEach(function(r){ doc.text(r[0]+': '+r[1], 40, y); y += 16; }); }
+  doc.setFontSize(8.5); const nota = doc.splitTextToSize('Estimativa com as tabelas de INSS e IRRF de 2026, calculados separadamente do salário. Não inclui INSS patronal. Confirme com a contabilidade antes do pagamento.'+(R.tipo==='justa'?' Justa causa: sem direito ao 13º proporcional.':''), 515);
+  doc.text(nota, 40, y);
+  doc.save('13o-salario-'+((R.nome||'funcionario').replace(/[^A-Za-z0-9]+/g,'-'))+'-'+R.ano+'.pdf');
+}
 function abIniciar(){
   if(abListener) return; abListener = true;
   db.ref('pagamentos').on('value', function(s){

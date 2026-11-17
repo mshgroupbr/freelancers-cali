@@ -272,7 +272,7 @@ if('serviceWorker' in navigator){
     <div class="rs" id="home-role-info" style="margin:-6px 0 2px"></div>
     <button class="btn-or" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
     <button class="btn-excel-home gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
-    <button class="btn-excel-home" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
+    <button class="btn-excel-home" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana / quinzena / mês</button>
     <button class="btn-excel-home" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
     <button class="btn-excel-home gerente-only" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
@@ -451,7 +451,13 @@ if('serviceWorker' in navigator){
           <input id="tn-fixo-data-input" type="date" style="flex:1">
           <button type="button" class="btn-add-data" onclick="adicionarDataFixo()">+</button>
         </div>
-        <button type="button" class="btn-sm gerente-only" style="width:100%;margin-bottom:10px" onclick="adicionarSemanaFixo()">📅 Adicionar a semana inteira (seg–dom)</button>
+        <div class="seg-row" style="margin-bottom:10px">
+          <div class="seg ativo" id="tn-per-semana" onclick="setPeriodoFixo('semana')">Semana</div>
+          <div class="seg" id="tn-per-quinzena" onclick="setPeriodoFixo('quinzena')">Quinzena</div>
+          <div class="seg" id="tn-per-mes" onclick="setPeriodoFixo('mes')">Mês</div>
+        </div>
+        <button type="button" class="btn-sm" id="tn-per-btn" style="width:100%;margin-bottom:6px" onclick="adicionarPeriodoFixo()">📅 Adicionar a semana inteira (seg–dom)</button>
+        <div id="tn-per-info" style="font-size:12px;opacity:.7;margin-bottom:10px">O valor informado abaixo vale para cada dia. Toque no ✕ de um dia para tirar folgas.</div>
         <div id="tn-datas-fixo-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
       </div>
       <label class="fl">Forma de pagamento</label>
@@ -680,7 +686,7 @@ if('serviceWorker' in navigator){
   <button class="side-it" data-s="s-home" onclick="goTo('s-home')"><i class="ti ti-home"></i> Início</button>
   <button class="side-it" data-s="s-turno" onclick="abrirLancamento()"><i class="ti ti-clock-plus"></i> Lançar turno</button>
   <button class="side-it gerente-only" onclick="abrirLancamentoAdiantamento()"><i class="ti ti-cash-banknote"></i> Lançar adiantamento</button>
-  <button class="side-it" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana</button>
+  <button class="side-it" onclick="abrirLancamentoSemana()"><i class="ti ti-calendar-week"></i> Lançar semana / quinzena / mês</button>
   <button class="side-it" data-s="s-freelancers" onclick="goTo('s-freelancers')"><i class="ti ti-users"></i> Freelancers</button>
   <button class="side-it gerente-only" data-s="s-fechamento" onclick="goTo('s-fechamento');renderFechamento()"><i class="ti ti-report-money"></i> Fechamento semanal</button>
   <button class="side-it gerente-only" data-s="s-aberto" onclick="goTo('s-aberto');renderEmAberto()"><i class="ti ti-wallet"></i> Em aberto</button>
@@ -1112,24 +1118,46 @@ function abrirLancamento(){
   document.getElementById('tn-del-btn').style.display='none';
   goTo('s-turno');
 }
-function adicionarSemanaFixo(){
+var periodoFixo = 'semana';
+var PERIODO_INFO = {
+  semana:{titulo:'Lançar semana (seg–dom)', btn:'📅 Adicionar a semana inteira (seg–dom)', obs:'Salário base semanal', nome:'Semana'},
+  quinzena:{titulo:'Lançar quinzena (1–15 ou 16–fim do mês)', btn:'📅 Adicionar a quinzena inteira', obs:'Salário base quinzenal', nome:'Quinzena'},
+  mes:{titulo:'Lançar mês (dia 1 ao último)', btn:'📅 Adicionar o mês inteiro', obs:'Salário base mensal', nome:'Mês'}
+};
+function datasDoPeriodo(tipo, refIso){
+  const d = new Date(refIso+'T00:00:00'); let ini, fim;
+  if(tipo==='semana'){ ini = getMonday(d); fim = new Date(ini); fim.setDate(ini.getDate()+6); }
+  else if(tipo==='quinzena'){
+    const y=d.getFullYear(), m=d.getMonth();
+    if(d.getDate()<=15){ ini=new Date(y,m,1); fim=new Date(y,m,15); } else { ini=new Date(y,m,16); fim=new Date(y,m+1,0); }
+  } else { ini=new Date(d.getFullYear(),d.getMonth(),1); fim=new Date(d.getFullYear(),d.getMonth()+1,0); }
+  const out=[]; for(let x=new Date(ini); x<=fim; x.setDate(x.getDate()+1)) out.push(isoDate(x));
+  return {ini:ini, fim:fim, datas:out};
+}
+function setPeriodoFixo(t){
+  periodoFixo = t; const inf = PERIODO_INFO[t];
+  ['semana','quinzena','mes'].forEach(function(k){ const el=document.getElementById('tn-per-'+k); if(el) el.classList.toggle('ativo', k===t); });
+  const btn=document.getElementById('tn-per-btn'); if(btn) btn.textContent = inf.btn;
+  const tit=document.getElementById('tn-titulo');
+  if(tit && /^Lançar (semana|quinzena|mês)/.test(tit.textContent)) tit.textContent = inf.titulo;
+  const obs=document.getElementById('tn-obs');
+  if(obs && (!obs.value || /^Salário base (semanal|quinzenal|mensal)$/.test(obs.value))) obs.value = inf.obs;
+}
+function adicionarPeriodoFixo(){
   const v = document.getElementById('tn-fixo-data-input').value || isoDate(new Date());
-  const seg = getMonday(new Date(v+'T00:00:00'));
-  for(let i=0;i<7;i++){
-    const d = new Date(seg); d.setDate(seg.getDate()+i);
-    const s = isoDate(d);
-    if(!turnoDatasFixo.includes(s)) turnoDatasFixo.push(s);
-  }
+  const r = datasDoPeriodo(periodoFixo, v);
+  r.datas.forEach(function(s){ if(!turnoDatasFixo.includes(s)) turnoDatasFixo.push(s); });
   turnoDatasFixo.sort();
   renderDatasFixo();
-  toast('📅 Semana de '+isoParaBR(isoDate(seg))+' adicionada (7 dias) — informe o valor de cada dia');
+  toast('📅 '+PERIODO_INFO[periodoFixo].nome+' de '+isoParaBR(isoDate(r.ini))+' a '+isoParaBR(isoDate(r.fim))+' adicionada ('+r.datas.length+' dias) — informe o valor de cada dia');
 }
+function adicionarSemanaFixo(){ periodoFixo='semana'; adicionarPeriodoFixo(); }
 function abrirLancamentoSemana(){
   abrirLancamento();
-  document.getElementById('tn-titulo').textContent='Lançar semana (seg–dom)';
   tipoPagamentoChange('fixo');
-  document.getElementById('tn-obs').value='Salário base semanal';
-  adicionarSemanaFixo();
+  document.getElementById('tn-titulo').textContent = PERIODO_INFO.semana.titulo;
+  setPeriodoFixo('semana');
+  adicionarPeriodoFixo();
 }
 function abrirLancamentoAdiantamento(){
   abrirLancamento();
